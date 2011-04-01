@@ -1,0 +1,3 @@
+JDeltaSync is a Java implementation of Microsoft's proprietary DeltaSync protocol. The DeltaSync protocol is used by Windows Live Mail and other software to synchronize mail, contacts, calendars, etc with web services like Microsoft's Windows Live Hotmail.
+
+For more information about this project please visit http://jdeltasync.googlecode.com/.
