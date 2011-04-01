@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
+  xmlns:saml="urn:oasis:names:tc:SAML:1.0:assertion" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy"
+  xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsa="http://www.w3.org/2005/08/addressing"
+  xmlns:wssc="http://schemas.xmlsoap.org/ws/2005/02/sc" xmlns:wst="http://schemas.xmlsoap.org/ws/2005/02/trust">
+  <s:Header>
+    <wsa:Action s:mustUnderstand="1">http://schemas.xmlsoap.org/ws/2005/02/trust/RST/Issue</wsa:Action>
+    <wsa:To s:mustUnderstand="1">HTTPS://login.live.com:443//RST2.srf</wsa:To>
+    <wsa:MessageID>1300795453</wsa:MessageID>
+    <ps:AuthInfo xmlns:ps="http://schemas.microsoft.com/Passport/SoapServices/PPCRL" Id="PPAuthInfo">
+      <ps:HostingApp>{47A6D4CF-5EB0-4B0E-9138-1B3F2DD40981}</ps:HostingApp>
+      <ps:BinaryVersion>5</ps:BinaryVersion>
+      <ps:UIVersion>1</ps:UIVersion>
+      <ps:Cookies></ps:Cookies>
+      <ps:RequestParams>AQAAAAIAAABsYwQAAAAxMDUz</ps:RequestParams>
+    </ps:AuthInfo>
+    <wsse:Security>
+      <wsse:UsernameToken wsu:Id="user">
+        <wsse:Username></wsse:Username>
+        <wsse:Password></wsse:Password>
+      </wsse:UsernameToken>
+      <wsu:Timestamp Id="Timestamp">
+        <wsu:Created></wsu:Created>
+        <wsu:Expires></wsu:Expires>
+      </wsu:Timestamp>
+    </wsse:Security>
+  </s:Header>
+  <s:Body>
+    <ps:RequestMultipleSecurityTokens xmlns:ps="http://schemas.microsoft.com/Passport/SoapServices/PPCRL"
+      Id="RSTS">
+      <wst:RequestSecurityToken Id="RST0">
+        <wst:RequestType>http://schemas.xmlsoap.org/ws/2005/02/trust/Issue</wst:RequestType>
+        <wsp:AppliesTo>
+          <wsa:EndpointReference>
+            <wsa:Address>http://Passport.NET/tb</wsa:Address>
+          </wsa:EndpointReference>
+        </wsp:AppliesTo>
+      </wst:RequestSecurityToken>
+      <wst:RequestSecurityToken Id="RST1">
+        <wst:RequestType>http://schemas.xmlsoap.org/ws/2005/02/trust/Issue</wst:RequestType>
+        <wsp:AppliesTo>
+          <wsa:EndpointReference>
+            <wsa:Address>mail.services.live.com</wsa:Address>
+          </wsa:EndpointReference>
+        </wsp:AppliesTo>
+        <wsp:PolicyReference URI="MBI"></wsp:PolicyReference>
+      </wst:RequestSecurityToken>
+    </ps:RequestMultipleSecurityTokens>
+  </s:Body>
+</s:Envelope>
