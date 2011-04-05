@@ -62,6 +62,7 @@ class PopHandler extends Thread {
     private static final String ERR_UNKNOWN_ERROR = "-ERR Unknown error";
     private static final String ERR_AUTHENTICATION_FAILED = "-ERR Authentication failed";
     private static final String ERR_EXPECTED_USER_BEFORE_PASS = "-ERR Expected USER before PASS";
+    private static final String ERR_MAILBOX_LOCKED = "-ERR Mailbox locked by another session";
     
     private static final Pattern USER = Pattern.compile("^USER\\s+([^\\s]+)$", Pattern.CASE_INSENSITIVE); 
     private static final Pattern PASS = Pattern.compile("^PASS\\s+(.+)$", Pattern.CASE_INSENSITIVE); 
@@ -74,6 +75,8 @@ class PopHandler extends Thread {
     private static final Pattern RSET = Pattern.compile("^RSET$", Pattern.CASE_INSENSITIVE); 
     private static final Pattern NOOP = Pattern.compile("^NOOP$", Pattern.CASE_INSENSITIVE); 
 
+    private static final Set<String> connectedUsers = new HashSet<String>();
+    
     private final String sessionId = UUID.randomUUID().toString();
     private final Socket socket;
     private final DeltaSyncClient deltaSyncClient;
@@ -122,16 +125,23 @@ class PopHandler extends Thread {
                 writeln(ERR_COMMAND_SYNTAX_ERROR);
             } else {
                 password = matcher.group(1);
-                try {
-                    DeltaSyncClientHelper helper = new DeltaSyncClientHelper(
-                            deltaSyncClient, username, password, store);
-                    helper.login();
-                    this.client = helper;
-                    MDC.put("username", username);
-                    logger.info("User {} logged in", username);
-                    writeln(OK);
-                } catch (AuthenticationException e) {
-                    writeln(ERR_AUTHENTICATION_FAILED);
+                synchronized (connectedUsers) {
+                    try {
+                        DeltaSyncClientHelper helper = new DeltaSyncClientHelper(
+                                deltaSyncClient, username, password, store);
+                        helper.login();
+                        if (connectedUsers.contains(username)) {
+                            writeln(ERR_MAILBOX_LOCKED);
+                        } else {
+                            this.client = helper;
+                            connectedUsers.add(username);
+                            MDC.put("username", username);
+                            logger.info("User {} logged in", username);
+                            writeln(OK);
+                        }
+                    } catch (AuthenticationException e) {
+                        writeln(ERR_AUTHENTICATION_FAILED);
+                    }
                 }
             }
         }
@@ -401,6 +411,11 @@ class PopHandler extends Thread {
         } catch (Throwable t) {
             logger.error("Exception caught in PopHandler", t);
         } finally {
+            if (client != null) {
+                synchronized (connectedUsers) {
+                    connectedUsers.remove(username);
+                }
+            }
             try {
                 socket.close();
             } catch (Throwable t) {}
