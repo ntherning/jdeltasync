@@ -27,10 +27,8 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -41,14 +39,11 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import com.googlecode.jdeltasync.AuthenticationException;
-import com.googlecode.jdeltasync.Changes;
 import com.googlecode.jdeltasync.DeltaSyncClient;
+import com.googlecode.jdeltasync.DeltaSyncClientHelper;
 import com.googlecode.jdeltasync.DeltaSyncException;
-import com.googlecode.jdeltasync.DeltaSyncSession;
 import com.googlecode.jdeltasync.Folder;
-import com.googlecode.jdeltasync.InvalidSyncKeyException;
 import com.googlecode.jdeltasync.Message;
-import com.googlecode.jdeltasync.SessionExpiredException;
 
 /**
  * Handles a POP3 connection.
@@ -79,24 +74,24 @@ class PopHandler extends Thread {
     private static final Pattern RSET = Pattern.compile("^RSET$", Pattern.CASE_INSENSITIVE); 
     private static final Pattern NOOP = Pattern.compile("^NOOP$", Pattern.CASE_INSENSITIVE); 
 
-    private static final Map<String, CachedMessages> cachedMessages = new HashMap<String, CachedMessages>();
-    
     private final String sessionId = UUID.randomUUID().toString();
     private final Socket socket;
     private final DeltaSyncClient deltaSyncClient;
     private final BufferedReader reader;
     private final PrintWriter writer;
+    private final DeltaSyncClientHelper.Store store;
 
+    private DeltaSyncClientHelper client;
     private String username;
     private String password;
-    private DeltaSyncSession session;
     private Folder inbox;
     private Message[] messages;
     private Set<String> deleted = new HashSet<String>();
     
-    public PopHandler(Socket socket, DeltaSyncClient deltaSyncClient) throws IOException {
+    public PopHandler(Socket socket, DeltaSyncClient deltaSyncClient, DeltaSyncClientHelper.Store store) throws IOException {
         this.socket = socket;
         this.deltaSyncClient = deltaSyncClient;
+        this.store = store;
         
         reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), "ASCII"));
         writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), "ASCII"));
@@ -128,8 +123,12 @@ class PopHandler extends Thread {
             } else {
                 password = matcher.group(1);
                 try {
-                    session = deltaSyncClient.login(username, password);
+                    DeltaSyncClientHelper helper = new DeltaSyncClientHelper(
+                            deltaSyncClient, username, password, store);
+                    helper.login();
+                    this.client = helper;
                     MDC.put("username", username);
+                    logger.info("User {} logged in", username);
                     writeln(OK);
                 } catch (AuthenticationException e) {
                     writeln(ERR_AUTHENTICATION_FAILED);
@@ -143,14 +142,10 @@ class PopHandler extends Thread {
             writeln(ERR_COMMAND_SYNTAX_ERROR);
             return false;
         } else {
-            if (session != null && !deleted.isEmpty()) {
-                try {
-                    deltaSyncClient.delete(session, getInbox(), getDeletedMessages());
-                } catch (SessionExpiredException e) {
-                    // Renew the session and try again
-                    session = deltaSyncClient.renew(session);
-                    deltaSyncClient.delete(session, getInbox(), getDeletedMessages());
-                }
+            if (client != null && !deleted.isEmpty()) {
+                logger.info("Deleting {} messages from Inbox", deleted.size());
+                client.delete(getInbox(), getDeletedMessages());
+                logger.info("{} messages deleted from Inbox", deleted.size());
             }
             writeln(OK_QUIT, deleted.size());
             return true;
@@ -189,21 +184,19 @@ class PopHandler extends Thread {
                         public void write(byte[] b, int off, int len)
                                 throws IOException {
     
-                            if (logger.isDebugEnabled()) {
-                                logger.debug("READ: " + new String(b, off, len), 
-                                        "ISO8859-1");
+                            if (logger.isTraceEnabled()) {
+                                logger.trace("READ: {}", 
+                                        new String(b, off, len, "ISO8859-1"));
+                            } else if (logger.isDebugEnabled()) {
+                                logger.debug("READ: \"{}\" ({} bytes in total)", 
+                                        new String(b, off, Math.min(len, 64), "ISO8859-1"),
+                                        len);
                             }
                             this.out.write(b, off, len);
                         }
                     }
                 ));
-                try {
-                    deltaSyncClient.downloadMessageContent(session, msgs[n - 1], out);
-                } catch (SessionExpiredException e) {
-                    // Renew the session and try again
-                    session = deltaSyncClient.renew(session);
-                    deltaSyncClient.downloadMessageContent(session, msgs[n - 1], out);
-                }                    
+                client.downloadMessageContent(msgs[n - 1], out);
                 out.flush();
                 writeln("\r\n.");
             }
@@ -291,71 +284,21 @@ class PopHandler extends Thread {
     
     private Folder getInbox() throws Exception {
         if (inbox == null) {
-            try {
-                inbox = deltaSyncClient.getInbox(session);
-            } catch (SessionExpiredException e) {
-                // Renew the session and try again
-                session = deltaSyncClient.renew(session);
-                inbox = deltaSyncClient.getInbox(session);
-            }
+            inbox = client.getInbox();
         }
         return inbox;
     }
 
     private Message[] getAllMessages() throws Exception {
-        return getAllMessages(true);
-    }
-    
-    private Message[] getAllMessages(boolean tryAgainIfExpired) throws Exception {
         if (messages == null) {
-            try {
-                CachedMessages cached = cachedMessages.get(session.getUsername());
-                if (cached != null) {
-                    logger.debug("Found messages in the cache. Requesting changes.");
-                    try {
-                        Map<String, Message> messagesMap = new HashMap<String, Message>();
-                        for (Message m : cached.getMessages()) {
-                            messagesMap.put(m.getId(), m);
-                        }
-                        session.setSyncKey(cached.getSyncKey());
-                        while (true) {
-                            Changes changes = deltaSyncClient.getChanges(session, getInbox());
-                            for (Message m : changes.getAdded()) {
-                                messagesMap.put(m.getId(), m);
-                            }
-                            for (String s : changes.getDeleted()) {
-                                messagesMap.remove(s);
-                            }
-                            if (!changes.isMoreAvailable()) {
-                                break;
-                            }
-                        }
-                        messages = messagesMap.values().toArray(new Message[messagesMap.size()]);
-                    } catch (InvalidSyncKeyException e) {
-                        logger.debug("Invalid sync key in cache. All messages will be retrieved anew.");
-                    }
-                }
-                
-                if (messages == null) {
-                    messages = deltaSyncClient.getMessages(session, getInbox());
-                }
-                
-            } catch (SessionExpiredException e) {
-                if (tryAgainIfExpired) {
-                    // Renew the session and try once again
-                    session = deltaSyncClient.renew(session);
-                    return getAllMessages(false);
-                }
-                throw e;
-            }
+            messages = client.getMessages(getInbox());
             Arrays.sort(messages, new Comparator<Message>() {
                 public int compare(Message m1, Message m2) {
                     return m1.getDateReceived().compareTo(m2.getDateReceived());
                 }
             });
             
-            // Cache the messages
-            cachedMessages.put(session.getUsername(), new CachedMessages(session.getSyncKey(), messages));
+            logger.info("{} messages in Inbox", messages.length);        
         }
         return messages;
     }
@@ -385,6 +328,8 @@ class PopHandler extends Thread {
         try {
             MDC.put("session", sessionId);
             
+            logger.info("Connection from {}", socket.getRemoteSocketAddress());
+            
             writeln(GREETING);
             boolean done = false;
             while (!done && !isInterrupted()) {
@@ -408,7 +353,7 @@ class PopHandler extends Thread {
                 try {
                     if ("QUIT".equals(cmd)) {
                         done = quit(line);
-                    } else if (session == null) {
+                    } else if (client == null) {
                         if ("USER".equals(cmd)) {
                             user(line);
                         } else if ("PASS".equals(cmd)) {
@@ -459,25 +404,8 @@ class PopHandler extends Thread {
             try {
                 socket.close();
             } catch (Throwable t) {}
+            logger.info("Session ended");
             MDC.clear();
-        }
-    }
-    
-    private static class CachedMessages {
-        private final String syncKey;
-        private final Message[] messages;
-        
-        public CachedMessages(String syncKey, Message[] messages) {
-            this.syncKey = syncKey;
-            this.messages = messages;
-        }
-        
-        public String getSyncKey() {
-            return syncKey;
-        }
-        
-        public Message[] getMessages() {
-            return messages;
         }
     }
 }

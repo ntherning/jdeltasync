@@ -29,7 +29,6 @@ public class DeltaSyncSession {
     private Logger logger;
     protected String ticket;
     protected String dsBaseUri = null;
-    protected String syncKey = "0";
     protected CookieStore cookies = new BasicCookieStore();
     
     /**
@@ -74,28 +73,6 @@ public class DeltaSyncSession {
     }
     
     /**
-     * Returns the last <code>SyncKey</code> received from the server in
-     * {@link DeltaSyncClient#getMessages(DeltaSyncSession, Folder)} or
-     * {@link DeltaSyncClient#getChanges(DeltaSyncSession, Folder)}.
-     * 
-     * @return the sync key.
-     */
-    public String getSyncKey() {
-        return syncKey;
-    }
-    
-    /**
-     * Sets the <code>SyncKey</code> to be used by the next call to
-     * {@link DeltaSyncClient#getMessages(DeltaSyncSession, Folder)} or
-     * {@link DeltaSyncClient#getChanges(DeltaSyncSession, Folder)}.
-     * 
-     * @param syncKey the new sync key.
-     */
-    public void setSyncKey(String syncKey) {
-        this.syncKey = syncKey;
-    }
-    
-    /**
      * Returns the {@link Logger} which will be used by {@link DeltaSyncClient}
      * to log things for this session.
      * 
@@ -123,8 +100,7 @@ public class DeltaSyncSession {
         StringBuilder sb = new StringBuilder(super.toString() + "(");
         sb.append("username").append("=").append(username).append(",");
         sb.append("password").append("=").append("******").append(",");
-        sb.append("ticket").append("=").append(ticket).append(",");
-        sb.append("syncKey").append("=").append(syncKey);
+        sb.append("ticket").append("=").append(ticket);
         sb.append(")");
         return sb.toString();
     }

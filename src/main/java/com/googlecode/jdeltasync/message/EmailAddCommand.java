@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.googlecode.jdeltasync;
+package com.googlecode.jdeltasync.message;
 
-import java.io.Serializable;
 import java.util.Date;
 
 /**
- * Represents a message on the server.
+ * {@link Command} exchanged when an e-mail has been added.
  */
-public class Message implements Serializable {
+public class EmailAddCommand extends Command {
     private final String id;
+    private final String folderId;
     private final Date dateReceived;
     private final long size;
     private final boolean read;
@@ -41,10 +41,11 @@ public class Message implements Serializable {
      * @param subject the message subject.
      * @param from the name and e-mail address of the sender.
      */
-    public Message(String id, Date dateReceived, long size, boolean read,
+    public EmailAddCommand(String id, String folderId, Date dateReceived, long size, boolean read,
             String subject, String from) {
         
         this.id = id;
+        this.folderId = folderId;
         this.dateReceived = dateReceived;
         this.size = size;
         this.read = read;
@@ -61,6 +62,10 @@ public class Message implements Serializable {
         return id;
     }
 
+    public String getFolderId() {
+        return folderId;
+    }
+    
     /**
      * Returns the {@link Date} and time when this message was received.
      * 
@@ -112,6 +117,7 @@ public class Message implements Serializable {
     public String toString() {
         StringBuilder sb = new StringBuilder(super.toString() + "(");
         sb.append("id").append("=").append(id).append(",");
+        sb.append("folderId").append("=").append(folderId).append(",");
         sb.append("dateReceived").append("=").append(dateReceived).append(",");
         sb.append("size").append("=").append(size).append(",");
         sb.append("read").append("=").append(read).append(",");

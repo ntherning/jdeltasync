@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 
-import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
@@ -94,17 +93,12 @@ import org.xml.sax.SAXException;
  */
 class XmlUtil {
 
-    private static final DocumentBuilder DOC_BUILDER;
+    private static final DocumentBuilderFactory DOM_FACTORY;
     private static final Map<String, String> NAMESPACES;
     
     static {
-        DocumentBuilderFactory domFactory = DocumentBuilderFactory.newInstance();
-        domFactory.setNamespaceAware(true); 
-        try {
-            DOC_BUILDER = domFactory.newDocumentBuilder();
-        } catch (ParserConfigurationException e) {
-            throw new Error(e);
-        }
+        DOM_FACTORY = DocumentBuilderFactory.newInstance();
+        DOM_FACTORY.setNamespaceAware(true); 
         
         NAMESPACES = new HashMap<String, String>();
         NAMESPACES.put("s", "http://www.w3.org/2003/05/soap-envelope");
@@ -129,8 +123,10 @@ class XmlUtil {
      */
     public static Document parse(InputStream input) throws XmlException, IOException {
         try {
-            return DOC_BUILDER.parse(input);
+            return DOM_FACTORY.newDocumentBuilder().parse(input);
         } catch (SAXException e) {
+            throw new XmlException(e);
+        } catch (ParserConfigurationException e) {
             throw new XmlException(e);
         }
     }
@@ -259,7 +255,7 @@ class XmlUtil {
      */
     public static String getTextContent(Node root, String path) {
         Element el = getElement(root, path);
-        String s = el.getTextContent();
+        String s = el == null ? null : el.getTextContent();
         return s != null ? s.trim() : null;
     }
     

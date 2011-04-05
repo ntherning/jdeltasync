@@ -13,31 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.googlecode.jdeltasync;
-
-import java.io.Serializable;
+package com.googlecode.jdeltasync.message;
 
 
 /**
- * Represents a folder on the server.
+ * {@link Command} exchanged when a folder has been added.
  */
-public class Folder implements Serializable {
+public class FolderAddCommand extends Command {
     private final String id;
-    private final String name;
+    private final String displayName;
     
     /**
-     * Creates a new {@link Folder}.
+     * Creates a new {@link FolderAddCommand}.
      * 
-     * @param id the id of the {@link Folder}.
-     * @param name the name.
+     * @param id the id of the folder.
+     * @param displayName the <code>DisplayName</code>.
      */
-    public Folder(String id, String name) {
+    public FolderAddCommand(String id, String displayName) {
         this.id = id;
-        this.name = name;
+        this.displayName = displayName;
     }
     
     /**
-     * Returns the id of this {@link Folder}.
+     * Returns the id of the folder that has been added.
      * 
      * @return the id.
      */
@@ -46,19 +44,19 @@ public class Folder implements Serializable {
     }
 
     /**
-     * Returns the name of this {@link Folder}.
+     * Returns the <code>DisplayName</code> of the folder that has been added.
      * 
-     * @return the name.
+     * @return the <code>DisplayName</code>.
      */
-    public String getName() {
-        return name;
+    public String getDisplayName() {
+        return displayName;
     }
-    
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(super.toString() + "(");
         sb.append("id").append("=").append(id).append(",");
-        sb.append("name").append("=").append(name);
+        sb.append("displayName").append("=").append(displayName);
         sb.append(")");
         return sb.toString();
     }

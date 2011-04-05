@@ -13,31 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.googlecode.jdeltasync;
-
-import java.io.Serializable;
-
+package com.googlecode.jdeltasync.message;
 
 /**
- * Represents a folder on the server.
+ * {@link Command} exchanged when an e-mail has been deleted.
  */
-public class Folder implements Serializable {
+public class EmailDeleteCommand extends Command {
     private final String id;
-    private final String name;
     
-    /**
-     * Creates a new {@link Folder}.
-     * 
-     * @param id the id of the {@link Folder}.
-     * @param name the name.
-     */
-    public Folder(String id, String name) {
+    public EmailDeleteCommand(String id) {
         this.id = id;
-        this.name = name;
     }
-    
+
     /**
-     * Returns the id of this {@link Folder}.
+     * Returns the id of the message that has been deleted.
      * 
      * @return the id.
      */
@@ -45,20 +34,10 @@ public class Folder implements Serializable {
         return id;
     }
 
-    /**
-     * Returns the name of this {@link Folder}.
-     * 
-     * @return the name.
-     */
-    public String getName() {
-        return name;
-    }
-    
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(super.toString() + "(");
-        sb.append("id").append("=").append(id).append(",");
-        sb.append("name").append("=").append(name);
+        sb.append("id").append("=").append(id);
         sb.append(")");
         return sb.toString();
     }

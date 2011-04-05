@@ -26,11 +26,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.TimeZone;
 import java.util.regex.Pattern;
 
@@ -68,6 +64,14 @@ import org.w3c.dom.Element;
 
 import com.googlecode.jdeltasync.hu01.HU01DecompressorOutputStream;
 import com.googlecode.jdeltasync.hu01.HU01Exception;
+import com.googlecode.jdeltasync.message.Clazz;
+import com.googlecode.jdeltasync.message.Command;
+import com.googlecode.jdeltasync.message.EmailAddCommand;
+import com.googlecode.jdeltasync.message.EmailDeleteCommand;
+import com.googlecode.jdeltasync.message.FolderAddCommand;
+import com.googlecode.jdeltasync.message.FolderDeleteCommand;
+import com.googlecode.jdeltasync.message.SyncRequest;
+import com.googlecode.jdeltasync.message.SyncResponse;
 
 /**
  * Main class used to communicate with the Windows Live Hotmail service using
@@ -84,29 +88,9 @@ public class DeltaSyncClient {
         + "{47A6D4CF-5EB0-4B0E-9138-1B3F2DD40981})";
     private static final String DS_USER_AGENT = "WindowsLiveMail/1.0";
     private static final String DS_BASE_URI = "http://mail.services.live.com";
-    private static final Map<String, String> STANDARD_FOLDERS_MAPPINGS;
     private static final byte[] LINE_SEPARATOR;
     
-    /**
-     * The default number of messages to request at a time in 
-     * {@link #getMessages(DeltaSyncSession, int, String, Folder)}.
-     * Max value seems to be 2000. If a higher value is used the server
-     * never returns more than 2000 in each Sync response.
-     * <p>
-     * Each Add in the response is about 1 kB so 256 should mean each 
-     * response is about 256 kB maximum.
-     */
-    public static final int DEFAULT_WINDOW_SIZE = 256;
-    
     static {
-        STANDARD_FOLDERS_MAPPINGS = new HashMap<String, String>();
-        STANDARD_FOLDERS_MAPPINGS.put("ACTIVE", "Inbox");
-        STANDARD_FOLDERS_MAPPINGS.put("drAfT", "Drafts");
-        STANDARD_FOLDERS_MAPPINGS.put("HM_BuLkMail_", "Junk");
-        STANDARD_FOLDERS_MAPPINGS.put("sAVeD", "Sent");
-        STANDARD_FOLDERS_MAPPINGS.put("trAsH", "Deleted");
-        STANDARD_FOLDERS_MAPPINGS.put(".!!OIM", "Offline Instant Messages");
-        
         try {
             LINE_SEPARATOR = System.getProperty("line.separator").getBytes("ASCII");
         } catch (UnsupportedEncodingException e) {
@@ -115,7 +99,6 @@ public class DeltaSyncClient {
     }
 
     private final HttpClient httpClient;
-    private int windowSize = DEFAULT_WINDOW_SIZE;
     
     /**
      * Creates a new {@link DeltaSyncClient} using a 
@@ -142,35 +125,6 @@ public class DeltaSyncClient {
      */
     public ClientConnectionManager getConnectionManager() {
         return httpClient.getConnectionManager();
-    }
-    
-    /**
-     * Returns the current <code>windowSize</code> which specifies the maximum 
-     * number of changes returned by a call to {@link #getChanges(DeltaSyncSession, Folder)}. 
-     * {@link #getMessages(DeltaSyncSession, Folder)} needs to do
-     * <code>totalNumberOfMessagesInFolder / windowSize</code> requests to
-     * get all messages in a folder.
-     * 
-     * @return the current <code>windowSize</code>.
-     * @see #DEFAULT_WINDOW_SIZE
-     */
-    public int getWindowSize() {
-        return windowSize;
-    }
-    
-    /**
-     * Sets the <code>windowSize</code>.
-     * 
-     * @param windowSize the new <code>windowSize</code>.
-     * @throws IllegalArgumentException if the specified value is negative or 0.
-     * @see #DEFAULT_WINDOW_SIZE
-     * @see #getWindowSize()
-     */
-    public void setWindowSize(int windowSize) {
-        if (windowSize <= 0) {
-            throw new IllegalArgumentException("windowSize");
-        }
-        this.windowSize = windowSize;
     }
     
     /**
@@ -255,303 +209,48 @@ public class DeltaSyncClient {
     }
     
     /**
-     * Returns all {@link Folder}s.
+     * Downloads the HU01 compressed content of the message with the specified 
+     * id and writes it to the specified {@link OutputStream}.
      * 
      * @param session the session.
-     * @return all {@link Folder}s.
-     * @throws SessionExpiredException if the session has expired.
-     * @throws DeltaSyncException on errors returned by the server.
-     * @throws IOException on communication errors.
-     */
-    public Folder[] getFolders(DeltaSyncSession session) throws DeltaSyncException, IOException {
-        String request = 
-                  "<Sync xmlns=\"AirSync:\">" 
-                +   "<Collections>" 
-                +     "<Collection>" 
-                +       "<Class>Folder</Class>" 
-                +       "<SyncKey>0</SyncKey>" 
-                +       "<GetChanges/>" 
-                +     "</Collection>" 
-                +   "</Collections>" 
-                + "</Sync>";
-        Document doc = sync(session, request);
-        
-        String status = XmlUtil.getTextContent(doc, "/airsync:Sync/airsync:Collections" 
-                + "/airsync:Collection/airsync:Status");
-        if (status == null || !"1".equals(status)) {
-            throw new DeltaSyncException("Sync request failed");
-        }
-        
-        List<Folder> folders = new ArrayList<Folder>();
-        for (Element elAdd : XmlUtil.getElements(doc, "//airsync:Commands/airsync:Add")) {
-            String serverId = XmlUtil.getTextContent(elAdd, "airsync:ServerId");
-            /*
-             * The standard folders have funny display names (e.g. drAfT). We map 
-             * those to better names here.
-             */
-            String displayName = XmlUtil.getTextContent(elAdd, "airsync:ApplicationData/hmfolder:DisplayName");
-            if (STANDARD_FOLDERS_MAPPINGS.containsKey(displayName)) {
-                displayName = STANDARD_FOLDERS_MAPPINGS.get(displayName);
-            }
-            folders.add(new Folder(serverId, displayName));
-        }
-        return folders.toArray(new Folder[folders.size()]);
-    }
-    
-    /**
-     * Returns the Inbox {@link Folder}.
-     * 
-     * @param session the session.
-     * @return the Inbox {@link Folder} or <code>null</code> if not found.
-     * @throws SessionExpiredException if the session has expired.
-     * @throws DeltaSyncException on errors returned by the server.
-     * @throws IOException on communication errors.
-     */
-    public Folder getInbox(DeltaSyncSession session) throws DeltaSyncException, IOException {
-        for (Folder folder : getFolders(session)) {
-            if ("Inbox".equals(folder.getName())) {
-                return folder;
-            }
-        }
-        return null;
-    }
-    
-    /**
-     * Returns all messages in the specified {@link Folder}.
-     * 
-     * @param session the session.
-     * @param folder the {@link Folder}.
-     * @return all messages in the specified {@link Folder}.
-     * @throws SessionExpiredException if the session has expired.
-     * @throws DeltaSyncException on errors returned by the server.
-     * @throws IOException on communication errors.
-     */
-    public Message[] getMessages(DeltaSyncSession session, Folder folder) throws DeltaSyncException, IOException {
-        session.syncKey = "0";
-        List<Message> result = new ArrayList<Message>();
-        while (true) {
-            Changes changes = getChanges(session, folder);
-            result.addAll(changes.getAdded());
-            if (!changes.isMoreAvailable()) {
-                return result.toArray(new Message[result.size()]);
-            }
-        }
-    }
-
-    /**
-     * Returns a maximum of <code>windowSize</code> changes which have occurred 
-     * in the specified {@link Folder} since the last time this method was called
-     * or since {@link #getMessages(DeltaSyncSession, Folder)} was called. Use 
-     * {@link Changes#isMoreAvailable()} to determine if there are more changes 
-     * available. The session contains the <code>SyncKey</code> used by the 
-     * server to determine the time of the last query and what has happened 
-     * since then.
-     * <p>
-     * The <code>SyncKey</code> can be used between sessions. When a session ends
-     * you can use {@link DeltaSyncSession#getSyncKey()} to record the last 
-     * <code>SyncKey</code>. When the same user logs in again you can use
-     * {@link DeltaSyncSession#setSyncKey(String)} to use the previously 
-     * recorded <code>SyncKey</code> with the new session.
-     * 
-     * @param session the session.
-     * @param folder the {@link Folder}.
-     * @return the changes for the {@link Folder}.
-     * @throws SessionExpiredException if the session has expired.
-     * @throws DeltaSyncException on errors returned by the server.
-     * @throws IOException on communication errors.
-     */
-    public Changes getChanges(DeltaSyncSession session, Folder folder) throws DeltaSyncException, IOException {
-        
-        List<Message> added = new ArrayList<Message>();
-        Set<String> deleted = new HashSet<String>();
-        
-        String request = 
-              "<Sync xmlns=\"AirSync:\">" 
-            +   "<Collections>" 
-            +     "<Collection>" 
-            +       "<Class>Email</Class>" 
-            +       "<CollectionId>" + folder.getId() + "</CollectionId>" 
-            +       "<SyncKey>" + session.syncKey + "</SyncKey>" 
-            +       "<GetChanges/>" 
-            +       "<WindowSize>" + windowSize + "</WindowSize>" 
-            +     "</Collection>" 
-            +   "</Collections>" 
-            + "</Sync>";
-        
-        if (session.getLogger().isDebugEnabled()) {
-            session.getLogger().debug("Getting changes for folder {} with SyncKey {} and " 
-                    + "WindowSize {}", new Object[] {folder, session.syncKey, windowSize});
-        }
-        
-        Document response = sync(session, request);
-
-        String status = XmlUtil.getTextContent(response, "/airsync:Sync/airsync:Collections" 
-                + "/airsync:Collection/airsync:Status");
-        if (status == null || !"1".equals(status)) {
-            throw new DeltaSyncException("Sync request failed");
-        }
-        
-        session.syncKey = XmlUtil.getTextContent(response, "/airsync:Sync/airsync:Collections" 
-                + "/airsync:Collection/airsync:SyncKey");
-        
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-        format.setTimeZone(TimeZone.getTimeZone("UTC"));
-        
-        for (Element elAdd : XmlUtil.getElements(response, "//airsync:Commands/airsync:Add")) {
-            try {
-                String id = XmlUtil.getTextContent(elAdd, "airsync:ServerId");
-                Element elAppData = XmlUtil.getElement(elAdd, "airsync:ApplicationData");
-                long size = Long.parseLong(XmlUtil.getTextContent(elAppData, "hmmail:Size"));
-                boolean read = Integer.parseInt(XmlUtil.getTextContent(elAppData, "email:Read")) == 1;
-                Date dateReceived = format.parse(XmlUtil.getTextContent(elAppData, "email:DateReceived"));
-                String subject = XmlUtil.getTextContent(elAppData, "email:Subject");
-                String from = XmlUtil.getTextContent(elAppData, "email:From");
-                added.add(new Message(id, dateReceived, size, read, subject, from));
-            } catch (ParseException pe) {
-                throw new DeltaSyncException(pe);
-            }
-        }
-        for (Element elDelete : XmlUtil.getElements(response, "//airsync:Commands/airsync:Delete")) {
-            String id = XmlUtil.getTextContent(elDelete, "airsync:ServerId");
-            deleted.add(id);
-        }
-        
-        boolean moreAvailable = XmlUtil.hasElement(response, "/airsync:Sync/airsync:Collections" 
-                + "/airsync:Collection/airsync:MoreAvailable");
-        
-        if (session.getLogger().isDebugEnabled()) {
-            session.getLogger().debug("Got {} adds, {} deletes and MoreAvailable = {}", 
-                    new Object[] {added.size(), deleted.size(), moreAvailable});
-        }
-        
-        return new Changes(added, deleted, moreAvailable);
-    }
-
-    private String getDeleteCommands(String[] ids) {
-        StringBuilder sb = new StringBuilder();
-        for (String s : ids) {
-            sb.append("<Delete>").append("<ServerId>").append(s).append("</ServerId>").append("</Delete>");
-        }
-        return sb.toString();
-    }
-    
-    /**
-     * Deletes the specified {@link Message}s from the specified {@link Folder}.
-     * 
-     * @param session the session.
-     * @param folder the {@link Folder}.
-     * @param messages the {@link Message}s to be deleted.
-     * @return the ids of the {@link Message}s actually deleted.
-     * @throws SessionExpiredException if the session has expired.
-     * @throws DeltaSyncException on errors returned by the server.
-     * @throws IOException on communication errors.
-     */
-    public String[] delete(DeltaSyncSession session, Folder folder, Message[] messages) 
-            throws DeltaSyncException, IOException {
-        
-        String[] ids = new String[messages.length];
-        for (int i = 0; i < messages.length; i++) {
-            ids[i] = messages[i].getId();
-        }
-        return delete(session, folder, ids);
-    }
-    
-    /**
-     * Deletes the {@link Message}s with the specified ids from the specified 
-     * {@link Folder}.
-     * 
-     * @param session the session.
-     * @param folder the {@link Folder}.
-     * @param ids the ids to be deleted.
-     * @return the ids of the {@link Message}s actually deleted.
-     * @throws SessionExpiredException if the session has expired.
-     * @throws DeltaSyncException on errors returned by the server.
-     * @throws IOException on communication errors.
-     */
-    public String[] delete(DeltaSyncSession session, Folder folder, String[] ids) 
-            throws DeltaSyncException, IOException {
-        
-        if (ids.length == 0) {
-            return new String[0];
-        }
-        
-        String request = 
-              "<Sync xmlns=\"AirSync:\">" 
-            +   "<Collections>" 
-            +     "<Collection>" 
-            +       "<Class>Email</Class>" 
-            +       "<CollectionId>" + folder.getId() + "</CollectionId>" 
-            +       "<SyncKey>0</SyncKey>" 
-            +       "<Commands>"
-            +         getDeleteCommands(ids)
-            +       "</Commands>"
-            +     "</Collection>" 
-            +   "</Collections>" 
-            + "</Sync>";
-        Document doc = sync(session, request);
-
-        String status = XmlUtil.getTextContent(doc, "/airsync:Sync/airsync:Collections" 
-                + "/airsync:Collection/airsync:Status");
-        if (status == null || !"1".equals(status)) {
-            throw new DeltaSyncException("Sync request failed");
-        }
-        
-        List<String> result = new ArrayList<String>();
-        for (Element elDelete : XmlUtil.getElements(doc, "//airsync:Responses/airsync:Delete")) {
-            String id = XmlUtil.getTextContent(elDelete, "airsync:ServerId");
-            status = XmlUtil.getTextContent(elDelete, "airsync:Status");
-            // status == 4403 means no such message found
-            if (id != null && status != null && "1".equals(status)) {
-                result.add(id);
-            }
-        }
-
-        return result.toArray(new String[result.size()]);
-    }
-    
-    /**
-     * Downloads the HU01 compressed content of the specified {@link Message} 
-     * and writes it to the specified {@link OutputStream}.
-     * 
-     * @param session the session.
-     * @param message the {@link Message} to download.
+     * @param messageId the id of the message to download.
      * @param out the stream to write the HU01 compressed message content to.
      * @throws SessionExpiredException if the session has expired.
      * @throws DeltaSyncException on errors returned by the server.
      * @throws IOException on communication errors.
      */
-    public void downloadRawMessageContent(DeltaSyncSession session, Message message, OutputStream out) 
+    public void downloadRawMessageContent(DeltaSyncSession session, String messageId, OutputStream out) 
             throws DeltaSyncException, IOException {
         
-        downloadMessageContent(session, message, out, true);
+        downloadMessageContent(session, messageId, out, true);
     }
     
     /**
-     * Downloads the content of the specified {@link Message} and writes it to
-     * the specified {@link OutputStream}.
+     * Downloads the content of the message with the specified id and writes it 
+     * to the specified {@link OutputStream}.
      * 
      * @param session the session.
-     * @param message the {@link Message} to download.
+     * @param messageId the id of the message to download.
      * @param out the stream to write the message content to.
      * @throws SessionExpiredException if the session has expired.
      * @throws DeltaSyncException on errors returned by the server.
      * @throws IOException on communication errors.
      */
-    public void downloadMessageContent(DeltaSyncSession session, Message message, OutputStream out) 
+    public void downloadMessageContent(DeltaSyncSession session, String messageId, OutputStream out) 
             throws DeltaSyncException, IOException {
         
-        downloadMessageContent(session, message, out, false);
+        downloadMessageContent(session, messageId, out, false);
     }
     
     private void downloadMessageContent(final DeltaSyncSession session, 
-            final Message message, final OutputStream output, final boolean raw) 
+            final String messageId, final OutputStream output, final boolean raw) 
             throws DeltaSyncException, IOException {
         
         String request = 
               "<ItemOperations xmlns=\"ItemOperations:\" xmlns:A=\"HMMAIL:\">"
             +   "<Fetch>"
             +     "<Class>Email</Class>"
-            +     "<A:ServerId>" + message.getId() + "</A:ServerId>"
+            +     "<A:ServerId>" + messageId + "</A:ServerId>"
             +     "<A:Compression>hm-compression</A:Compression>"
             +     "<A:ResponseContentType>mtom</A:ResponseContentType>"
             +   "</Fetch>"
@@ -612,7 +311,7 @@ public class DeltaSyncClient {
                 } catch (IOException e) {
                     if (e.getCause() != null && (e.getCause() instanceof HU01Exception)) {
                         session.getLogger().error("HU01 decompression failed: ", e.getCause());
-                        session.getLogger().error("Dumping HU01 stream as BASE64 for message {}", message);
+                        session.getLogger().error("Dumping HU01 stream as BASE64 for message {}", messageId);
                         session.getLogger().error("Please submit the BASE64 encoded message content");
                         session.getLogger().error("and the plain text message content to the JDeltaSync");
                         session.getLogger().error("issue tracker. The plain text message content can");
@@ -621,7 +320,7 @@ public class DeltaSyncClient {
                         ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
                         Base64OutputStream base64Out = new Base64OutputStream(baos, true, 72, LINE_SEPARATOR);
                         try {
-                            downloadRawMessageContent(session, message, base64Out);
+                            downloadRawMessageContent(session, messageId, base64Out);
                             base64Out.close();
                             session.getLogger().error(new String(baos.toByteArray(), "ASCII"));
                         } catch (Throwable t) {
@@ -653,12 +352,116 @@ public class DeltaSyncClient {
         }
         int code = Integer.parseInt(elStatus.getTextContent().trim());
         if (code == 4403) {
-            throw new NoSuchMessageException(message.getId());
+            throw new NoSuchMessageException(messageId);
         } else if (code != 1) {
             throw new UnrecognizedErrorCodeException(code, 
                     "Unrecognized error code in response for <Fetch> request. Response was: "
                     + XmlUtil.toString(response, true));
         }
+    }
+    
+    public SyncResponse sync(DeltaSyncSession session, SyncRequest syncRequest) 
+            throws DeltaSyncException, IOException {
+        
+        StringBuilder request = new StringBuilder("<Sync xmlns=\"AirSync:\"><Collections>");
+        for (SyncRequest.Collection collection : syncRequest.getCollections()) {
+            request.append("<Collection>");
+            request.append("<Class>").append(collection.getClazz()).append("</Class>");
+            if (collection.getCollectionId() != null) {
+                request.append("<CollectionId>").append(collection.getCollectionId()).append("</CollectionId>");                
+            }
+            request.append("<SyncKey>").append(collection.getSyncKey()).append("</SyncKey>");
+            if (collection.isGetChanges()) {
+                request.append("<GetChanges/>");
+            }
+            if (collection.getWindowSize() > 0) {
+                request.append("<WindowSize>").append(collection.getWindowSize()).append("</WindowSize>");
+            }
+            if (!collection.getCommands().isEmpty()) {
+                request.append("<Commands>");
+                for (Command command : collection.getCommands()) {
+                    request.append("<Delete>").append("<ServerId>");
+                    switch (collection.getClazz()) {
+                    case Email:
+                        request.append(((EmailDeleteCommand) command).getId());
+                        break;
+                    case Folder:
+                        request.append(((FolderDeleteCommand) command).getId());
+                        break;
+                    }
+                    request.append("</ServerId>").append("</Delete>");
+                }
+                request.append("</Commands>");
+            }
+            request.append("</Collection>");
+        }
+        request.append("</Collections></Sync>");
+        
+        Document response = sync(session, request.toString());
+
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+        format.setTimeZone(TimeZone.getTimeZone("UTC"));
+        
+        List<SyncResponse.Collection> collections = new ArrayList<SyncResponse.Collection>();
+        for (Element elCollection : XmlUtil.getElements(response, "//airsync:Collection")) {
+            String syncKey = XmlUtil.getTextContent(elCollection, "airsync:SyncKey");
+            Clazz clazz = Clazz.valueOf(XmlUtil.getTextContent(elCollection, "airsync:Class"));
+            int status = Integer.parseInt(XmlUtil.getTextContent(elCollection, "airsync:Status"));
+            boolean moreAvailable = XmlUtil.hasElement(elCollection, "airsync:MoreAvailable");
+            List<Command> commands = new ArrayList<Command>();
+            
+            switch (clazz) {
+            case Email:
+                for (Element elAdd : XmlUtil.getElements(elCollection, "airsync:Commands/airsync:Add")) {
+                    try {
+                        String id = XmlUtil.getTextContent(elAdd, "airsync:ServerId");
+                        String folderId = XmlUtil.getTextContent(elAdd, "hmmail:FolderId");
+                        Element elAppData = XmlUtil.getElement(elAdd, "airsync:ApplicationData");
+                        long size = Long.parseLong(XmlUtil.getTextContent(elAppData, "hmmail:Size"));
+                        boolean read = Integer.parseInt(XmlUtil.getTextContent(elAppData, "email:Read")) == 1;
+                        Date dateReceived = format.parse(XmlUtil.getTextContent(elAppData, "email:DateReceived"));
+                        String subject = XmlUtil.getTextContent(elAppData, "email:Subject");
+                        String from = XmlUtil.getTextContent(elAppData, "email:From");
+                        commands.add(new EmailAddCommand(id, folderId, dateReceived, size, read, subject, from));
+                    } catch (ParseException e) {
+                        throw new DeltaSyncException(e);
+                    }
+                }
+                // TODO: AirSync:Change
+                for (Element elDelete : XmlUtil.getElements(elCollection, "airsync:Commands/airsync:Delete")) {
+                    String id = XmlUtil.getTextContent(elDelete, "airsync:ServerId");
+                    commands.add(new EmailDeleteCommand(id));
+                }
+                break;
+            case Folder:
+                for (Element elAdd : XmlUtil.getElements(elCollection, "airsync:Commands/airsync:Add")) {
+                    String id = XmlUtil.getTextContent(elAdd, "airsync:ServerId");
+                    String displayName = XmlUtil.getTextContent(elAdd, "airsync:ApplicationData/hmfolder:DisplayName");
+                    commands.add(new FolderAddCommand(id, displayName));
+
+                }
+                for (Element elDelete : XmlUtil.getElements(elCollection, "airsync:Commands/airsync:Delete")) {
+                    String id = XmlUtil.getTextContent(elDelete, "airsync:ServerId");
+                    commands.add(new FolderDeleteCommand(id));
+                }
+            }
+
+            List<SyncResponse.Collection.Response> responses = new ArrayList<SyncResponse.Collection.Response>();
+            // TODO: Support for other types of responses
+            for (Element elDelete : XmlUtil.getElements(elCollection, "airsync:Responses/airsync:Delete")) {
+                String id = XmlUtil.getTextContent(elDelete, "airsync:ServerId");
+                int deleteStatus = Integer.parseInt(XmlUtil.getTextContent(elDelete, "airsync:Status"));
+                responses.add(new SyncResponse.Collection.EmailDeleteResponse(id, deleteStatus));
+            }            
+            
+            collections.add(new SyncResponse.Collection(syncKey, clazz, status, commands, moreAvailable, responses));
+        }
+        
+        SyncResponse syncResponse = new SyncResponse(collections);
+        
+        session.getLogger().debug("Got SyncResponse: {}", syncResponse);
+        
+        return syncResponse;
     }
     
     private Document sync(final DeltaSyncSession session, String request) throws DeltaSyncException, IOException {
