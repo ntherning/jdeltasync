@@ -179,7 +179,7 @@ public class PopProxy {
             } 
         }
         
-        if (!datadir.isDirectory() || (!datadir.exists() && !datadir.mkdirs())) {
+        if ((datadir.exists() && !datadir.isDirectory()) || (!datadir.exists() && !datadir.mkdirs())) {
             log.error("Failed to create datadir {}", datadir.getCanonicalPath());
             System.exit(1);
         }
