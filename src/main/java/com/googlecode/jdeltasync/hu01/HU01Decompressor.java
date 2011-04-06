@@ -258,7 +258,7 @@ public class HU01Decompressor {
         }
         decoded.clear();
         
-        if (compressedBlockSize == decompressedBlockSize && decompressedBlockSize < TABLE_SIZE) {
+        if (compressedBlockSize == decompressedBlockSize && decompressedBlockSize < 2048) {
             /*
              * Block isn't compressed. Just copy the bytes. We don't know how to properly check for 
              * uncompressed blocks. For now the check above seems to work.

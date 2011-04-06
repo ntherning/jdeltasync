@@ -417,10 +417,9 @@ public class DeltaSyncClientHelper {
     }
     
     /**
-     * Downloads the content of the message with the specified id and writes it 
-     * to the specified {@link OutputStream}.
+     * Downloads the content of the specified {@link Message} and writes it to 
+     * the specified {@link OutputStream}.
      * 
-     * @param session the session.
      * @param message the {@link Message} to download the content for.
      * @param out the stream to write the message content to.
      * @throws SessionExpiredException if the session has expired and couldn't 
@@ -438,6 +437,30 @@ public class DeltaSyncClientHelper {
         } catch (SessionExpiredException e) {
             session = client.renew(session);
             client.downloadMessageContent(session, message.getId(), out);
+        }
+    }
+    
+    /**
+     * Downloads the HU01 compressed content of the specified {@link Message} 
+     * and writes it to the specified {@link OutputStream}.
+     * 
+     * @param message the {@link Message} to download the content for.
+     * @param out the stream to write the HU01 compressed message content to.
+     * @throws SessionExpiredException if the session has expired and couldn't 
+     *         be renewed.
+     * @throws DeltaSyncException on errors returned by the server.
+     * @throws IOException on communication errors.
+     * @throws IllegalStateException if not logged in.
+     */
+    public void downloadRawMessageContent(Message message, OutputStream out) 
+            throws DeltaSyncException, IOException {
+        
+        checkLoggedIn();
+        try {
+            client.downloadRawMessageContent(session, message.getId(), out);
+        } catch (SessionExpiredException e) {
+            session = client.renew(session);
+            client.downloadRawMessageContent(session, message.getId(), out);
         }
     }
     
