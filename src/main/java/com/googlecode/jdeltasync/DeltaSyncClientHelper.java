@@ -19,8 +19,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -355,65 +357,71 @@ public class DeltaSyncClientHelper {
      */
     public String[] delete(Folder folder, String[] ids) throws DeltaSyncException, IOException {
         checkLoggedIn();
+        LinkedList<String> idsList = new LinkedList<String>(Arrays.asList(ids));
+        ArrayList<String> deleted = new ArrayList<String>();
         try {
-            return doDelete(folder, ids);
+            doDelete(folder, idsList, deleted);
         } catch (SessionExpiredException e) {
             session = client.renew(session);
-            return doDelete(folder, ids);
+            doDelete(folder, idsList, deleted);
         } catch (InvalidSyncKeyException e) {
             session.getLogger().debug("Invalid messages sync key. Delete will " 
                     + "be retried with sync key 0");
             store.resetMessages(username, folder);
-            return doDelete(folder, ids);
+            doDelete(folder, idsList, deleted);
         }
+        return deleted.toArray(new String[deleted.size()]);
     }
     
-    private String[] doDelete(Folder folder, String[] ids) throws DeltaSyncException, IOException {    
-        if (ids.length == 0) {
-            return new String[0];
-        }
-        
-        List<Command> commands = new ArrayList<Command>();
-        for (String id : ids) {
-            commands.add(new EmailDeleteCommand(id));
-        }
-        
-        SyncRequest syncRequest = new SyncRequest(new SyncRequest.Collection(
-                store.getMessagesSyncKey(username, folder), Clazz.Email, folder.getId(), commands));
-        SyncResponse response = client.sync(session, syncRequest);
+    private void doDelete(Folder folder, LinkedList<String> ids, List<String> deleted) throws DeltaSyncException, IOException {    
+        while (!ids.isEmpty()) {
 
-        if (response.getCollections().isEmpty()) {
-            throw new DeltaSyncException("No <Collection> in Sync response");
-        }
-        SyncResponse.Collection collection = response.getCollections().get(0);
-        if (collection.getStatus() != 1) {
-            throw new DeltaSyncException("Sync request failed with status " 
-                    + collection.getStatus());
-        }
+            // Only delete up to 64 messages in each request
+            List<Command> commands = new ArrayList<Command>();
+            for (String id : ids.size() < 64 ? ids : ids.subList(0, 64)) {
+                commands.add(new EmailDeleteCommand(id));
+            }
+            
+            SyncRequest syncRequest = new SyncRequest(new SyncRequest.Collection(
+                    store.getMessagesSyncKey(username, folder), Clazz.Email, folder.getId(), commands));
+            SyncResponse response = client.sync(session, syncRequest);
     
-        if (collection.getCommands() != null && !collection.getCommands().isEmpty()) {
-            // We don't send <GetChanges> so we shouldn't get any Commands in the response
-            store.resetMessages(username, folder);
-            throw new DeltaSyncException("Delete should not return any Commands");
-        }
+            if (response.getCollections().isEmpty()) {
+                throw new DeltaSyncException("No <Collection> in Sync response");
+            }
+            SyncResponse.Collection collection = response.getCollections().get(0);
+            if (collection.getStatus() != 1) {
+                throw new DeltaSyncException("Sync request failed with status " 
+                        + collection.getStatus());
+            }
         
-        List<String> deleted = new ArrayList<String>();
-        for (SyncResponse.Collection.Response rsp : collection.getResponses()) {
-            if (rsp instanceof SyncResponse.Collection.EmailDeleteResponse) {
-                SyncResponse.Collection.EmailDeleteResponse delRsp = 
-                    (EmailDeleteResponse) rsp;
-                deleted.add(delRsp.getId());
-                // status == 4403 means no such message found
-                if (delRsp.getStatus() == 1) {
-                    deleted.add(delRsp.getId());
+            if (collection.getCommands() != null && !collection.getCommands().isEmpty()) {
+                // We don't send <GetChanges> so we shouldn't get any Commands in the response
+                store.resetMessages(username, folder);
+                throw new DeltaSyncException("Delete should not return any Commands");
+            }
+            
+            // Remove commands.size() elements from ids
+            ids.subList(0, commands.size()).clear();
+            
+            List<String> deletedInRun = new ArrayList<String>();
+            for (SyncResponse.Collection.Response rsp : collection.getResponses()) {
+                if (rsp instanceof SyncResponse.Collection.EmailDeleteResponse) {
+                    SyncResponse.Collection.EmailDeleteResponse delRsp = 
+                        (EmailDeleteResponse) rsp;
+                    deletedInRun.add(delRsp.getId());
+                    // status == 4403 means no such message found
+                    if (delRsp.getStatus() == 1) {
+                        deletedInRun.add(delRsp.getId());
+                    }
                 }
             }
-        }
 
-        store.updateMessages(username, folder, collection.getSyncKey(), 
-                new ArrayList<Message>(), deleted);
-        
-        return deleted.toArray(new String[deleted.size()]);
+            deleted.addAll(deletedInRun);
+            
+            store.updateMessages(username, folder, collection.getSyncKey(), 
+                    new ArrayList<Message>(), deletedInRun);
+        }
     }
     
     /**
@@ -477,6 +485,7 @@ public class DeltaSyncClientHelper {
     
     public static abstract class AbstractStore implements Store {
         
+        @SuppressWarnings("serial")
         public static class State implements Serializable {
             public String foldersSyncKey = "0";
             public Map<String, String> messagesSyncKeys = new HashMap<String, String>();

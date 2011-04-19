@@ -168,9 +168,11 @@ class PopHandler extends Thread {
         } else {
             int n = 0;
             long octets = 0;
-            for (Message msg : getNotDeletedMessages()) {
-                n++;
-                octets += msg.getSize();
+            for (Message msg : getAllMessages()) {
+                if (!deleted.contains(msg.getId())) {
+                    n++;
+                    octets += msg.getSize();
+                }
             }
             writeln(OK_STAT, n, octets);
         }
@@ -182,8 +184,8 @@ class PopHandler extends Thread {
             writeln(ERR_COMMAND_SYNTAX_ERROR);
         } else {
             int n = Integer.parseInt(matcher.group(1));
-            Message[] msgs = getNotDeletedMessages();
-            if (n <= 0 || n > msgs.length) {
+            Message[] msgs = getAllMessages();
+            if (n <= 0 || n > msgs.length || deleted.contains(msgs[n - 1].getId())) {
                 writeln(ERR_UNKNOWN_MESSAGE_NUMBER, n);
             } else {
                 writeln(OK);
@@ -219,8 +221,8 @@ class PopHandler extends Thread {
             writeln(ERR_COMMAND_SYNTAX_ERROR);
         } else {
             int n = Integer.parseInt(matcher.group(1));
-            Message[] msgs = getNotDeletedMessages();
-            if (n <= 0 || n > msgs.length) {
+            Message[] msgs = getAllMessages();
+            if (n <= 0 || n > msgs.length || deleted.contains(msgs[n - 1].getId())) {
                 writeln(ERR_UNKNOWN_MESSAGE_NUMBER, n);
             } else {
                 deleted.add(msgs[n - 1].getId());
@@ -235,18 +237,21 @@ class PopHandler extends Thread {
             writeln(ERR_COMMAND_SYNTAX_ERROR);
         } else if (matcher.group(1) != null) {
             int n = Integer.parseInt(matcher.group(1).trim());
-            Message[] msgs = getNotDeletedMessages();
-            if (n <= 0 || n > msgs.length) {
+            Message[] msgs = getAllMessages();
+            if (n <= 0 || n > msgs.length || deleted.contains(msgs[n - 1].getId())) {
                 writeln(ERR_UNKNOWN_MESSAGE_NUMBER, n);
             } else {
                 writeln(OK_UIDL, n, msgs[n - 1].getId());
             }
         } else {
-            Message[] msgs = getNotDeletedMessages();
+            Message[] msgs = getAllMessages();
             writeln(OK);
             int n = 1;
             for (Message msg : msgs) {
-                writeln("%d %s", n++, msg.getId());
+                if (!deleted.contains(msg.getId())) {
+                    writeln("%d %s", n, msg.getId());
+                }
+                n++;
             }
             writeln(".");
         }
@@ -258,18 +263,21 @@ class PopHandler extends Thread {
             writeln(ERR_COMMAND_SYNTAX_ERROR);
         } else if (matcher.group(1) != null) {
             int n = Integer.parseInt(matcher.group(1).trim());
-            Message[] msgs = getNotDeletedMessages();
-            if (n <= 0 || n > msgs.length) {
+            Message[] msgs = getAllMessages();
+            if (n <= 0 || n > msgs.length || deleted.contains(msgs[n - 1].getId())) {
                 writeln(ERR_UNKNOWN_MESSAGE_NUMBER, n);
             } else {
                 writeln(OK_STAT, n, msgs[n - 1].getSize());
             }
         } else {
-            Message[] msgs = getNotDeletedMessages();
+            Message[] msgs = getAllMessages();
             writeln(OK);
             int n = 1;
             for (Message msg : msgs) {
-                writeln("%d %d", n++, msg.getSize());
+                if (!deleted.contains(msg.getId())) {
+                    writeln("%d %d", n, msg.getSize());
+                }
+                n++;
             }
             writeln(".");
         }
@@ -317,16 +325,6 @@ class PopHandler extends Thread {
         List<Message> result = new ArrayList<Message>();
         for (Message msg : getAllMessages()) {
             if (deleted.contains(msg.getId())) {
-                result.add(msg);
-            }
-        }
-        return result.toArray(new Message[result.size()]);
-    }
-    
-    private Message[] getNotDeletedMessages() throws Exception {
-        List<Message> result = new ArrayList<Message>();
-        for (Message msg : getAllMessages()) {
-            if (!deleted.contains(msg.getId())) {
                 result.add(msg);
             }
         }
