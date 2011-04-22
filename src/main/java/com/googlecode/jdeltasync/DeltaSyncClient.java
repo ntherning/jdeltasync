@@ -51,6 +51,8 @@ import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.RedirectLocations;
 import org.apache.http.impl.conn.SchemeRegistryFactory;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
+import org.apache.http.params.CoreConnectionPNames;
+import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 import org.apache.http.protocol.BasicHttpContext;
 import org.apache.http.protocol.ExecutionContext;
@@ -116,6 +118,8 @@ public class DeltaSyncClient {
      */
     public DeltaSyncClient(ClientConnectionManager connectionManager) {
         this.httpClient = new DefaultHttpClient(connectionManager);
+        setConnectionTimeout(5 * 1000);
+        setSoTimeout(60 * 1000);
     }
     
     /**
@@ -125,6 +129,26 @@ public class DeltaSyncClient {
      */
     public ClientConnectionManager getConnectionManager() {
         return httpClient.getConnectionManager();
+    }
+    
+    /**
+     * Sets the connection timeout of the {@link HttpClient} instance. See
+     * {@link CoreConnectionPNames#CONNECTION_TIMEOUT}.
+     * 
+     * @param timeout the timeout.
+     */
+    public void setConnectionTimeout(int timeout) {
+        HttpConnectionParams.setConnectionTimeout(this.httpClient.getParams(), timeout);
+    }
+    
+    /**
+     * Sets the socket timeout (SO_TIMEOUT) of the {@link HttpClient} instance. See
+     * {@link CoreConnectionPNames#SO_TIMEOUT}.
+     * 
+     * @param timeout the timeout.
+     */
+    public void setSoTimeout(int timeout) {
+        HttpConnectionParams.setSoTimeout(this.httpClient.getParams(), timeout);
     }
     
     /**

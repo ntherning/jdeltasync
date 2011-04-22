@@ -376,7 +376,10 @@ public class DeltaSyncClientHelper {
     private void doDelete(Folder folder, LinkedList<String> ids, List<String> deleted) throws DeltaSyncException, IOException {    
         while (!ids.isEmpty()) {
 
-            // Only delete up to 64 messages in each request
+            /*
+             * Only delete up to 64 messages in each request. We don't know the 
+             * exact limit but we know that 160 is too many. 64 works fine.
+             */
             List<Command> commands = new ArrayList<Command>();
             for (String id : ids.size() < 64 ? ids : ids.subList(0, 64)) {
                 commands.add(new EmailDeleteCommand(id));

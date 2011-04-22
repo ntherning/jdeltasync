@@ -30,7 +30,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URLEncoder;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.apache.http.impl.conn.SchemeRegistryFactory;
@@ -140,6 +140,7 @@ public class PopProxy {
                 SchemeRegistryFactory.createDefault());
         connManager.setMaxTotal(100);
         connManager.setDefaultMaxPerRoute(100);
+                
         String bindTo = "localhost";
         int port = 10110;
         String logbackFile = null;
@@ -197,7 +198,14 @@ public class PopProxy {
     }
     
     private static class DiskStore extends DeltaSyncClientHelper.AbstractStore {
-        private final Map<String, State> states = new HashMap<String, State>();
+        private static final int MAX_ENTRIES = 32;
+        
+        @SuppressWarnings("serial")
+        private final Map<String, State> states = new LinkedHashMap<String, State>(16, 0.75f, true) {
+            protected boolean removeEldestEntry(Map.Entry<String,State> eldest) {
+                return size() > MAX_ENTRIES;
+            }
+        };
         private final File datadir;
 
         public DiskStore(File datadir) {
