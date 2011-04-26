@@ -158,6 +158,9 @@ class PopHandler extends Thread {
                 logger.info("{} messages deleted from Inbox", deleted.size());
             }
             writeln(OK_QUIT, deleted.size());
+            synchronized (connectedUsers) {
+                connectedUsers.remove(username);
+            }            
             return true;
         }
     }
