@@ -157,10 +157,10 @@ class PopHandler extends Thread {
                 client.delete(getInbox(), getDeletedMessages());
                 logger.info("{} messages deleted from Inbox", deleted.size());
             }
-            writeln(OK_QUIT, deleted.size());
             synchronized (connectedUsers) {
                 connectedUsers.remove(username);
             }            
+            writeln(OK_QUIT, deleted.size());
             return true;
         }
     }
