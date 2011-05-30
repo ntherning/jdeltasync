@@ -48,7 +48,7 @@ import com.googlecode.jdeltasync.Message;
 /**
  * Handles a POP3 connection.
  */
-class PopHandler extends Thread {
+class PopHandler implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(PopHandler.class);
     
     private static final String GREETING = "+OK JDeltaSync POP3 server ready";
@@ -102,7 +102,7 @@ class PopHandler extends Thread {
 
     private void writeln(String s, Object ... args) {
         s = String.format(s, args);
-        logger.debug("WRITE: {}", s);
+        logger.trace("WRITE: {}", s);
         writer.printf(s + "\r\n");
     }
     
@@ -202,10 +202,6 @@ class PopHandler extends Thread {
                             if (logger.isTraceEnabled()) {
                                 logger.trace("READ: {}", 
                                         new String(b, off, len, "ISO8859-1"));
-                            } else if (logger.isDebugEnabled()) {
-                                logger.debug("READ: \"{}\" ({} bytes in total)", 
-                                        new String(b, off, Math.min(len, 64), "ISO8859-1"),
-                                        len);
                             }
                             this.out.write(b, off, len);
                         }
@@ -334,7 +330,6 @@ class PopHandler extends Thread {
         return result.toArray(new Message[result.size()]);
     }
     
-    @Override
     public void run() {
         try {
             MDC.put("session", sessionId);
@@ -343,7 +338,7 @@ class PopHandler extends Thread {
             
             writeln(GREETING);
             boolean done = false;
-            while (!done && !isInterrupted()) {
+            while (!done && !Thread.currentThread().isInterrupted()) {
                 writer.flush();
                 String line = reader.readLine();
                 if (line == null) {
@@ -353,9 +348,9 @@ class PopHandler extends Thread {
                 if (logger.isDebugEnabled()) {
                     Matcher matcher = PASS.matcher(line);
                     if (matcher.matches()) {
-                        logger.debug("READ: {}", line.replaceAll(Pattern.quote(matcher.group(1)), "<password omitted>"));
+                        logger.trace("READ: {}", line.replaceAll(Pattern.quote(matcher.group(1)), "<password omitted>"));
                     } else {
-                        logger.debug("READ: {}", line);
+                        logger.trace("READ: {}", line);
                     }
                 }
                 line = line.trim();

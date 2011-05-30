@@ -32,6 +32,8 @@ import java.net.SocketTimeoutException;
 import java.net.URLEncoder;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.apache.http.impl.conn.SchemeRegistryFactory;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
@@ -56,15 +58,17 @@ public class PopProxy {
     private final InetSocketAddress bindAddress;
     private final DeltaSyncClient deltaSyncClient;
     private final DeltaSyncClientHelper.Store store;
+    private final ExecutorService executor;
     
     private ServerThread serverThread;
     
     public PopProxy(InetSocketAddress bindAddress, DeltaSyncClient deltaSyncClient, 
-            DeltaSyncClientHelper.Store store) {
+            DeltaSyncClientHelper.Store store, ExecutorService executor) {
         
         this.bindAddress = bindAddress;
         this.deltaSyncClient = deltaSyncClient;
         this.store = store;
+        this.executor = executor;
     }
 
     public synchronized void start() throws IOException {
@@ -112,7 +116,7 @@ public class PopProxy {
                     try {
                         Socket socket = serverSocket.accept();
                         PopHandler handler = new PopHandler(socket, deltaSyncClient, store);
-                        handler.start();
+                        executor.execute(handler);
                     } catch (SocketTimeoutException e) {
                     }
                 }
@@ -188,7 +192,8 @@ public class PopProxy {
         log.info("Using datadir {}", datadir.getCanonicalPath());
         
         PopProxy proxy = new PopProxy(new InetSocketAddress(bindTo, port), 
-                new DeltaSyncClient(connManager), new DiskStore(datadir));
+                new DeltaSyncClient(connManager), new DiskStore(datadir),
+                Executors.newCachedThreadPool());
         
         try {
             proxy.start();
