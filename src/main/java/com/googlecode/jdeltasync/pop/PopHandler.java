@@ -59,10 +59,11 @@ class PopHandler implements Runnable {
     private static final String ERR_BAD_COMMAND = "-ERR Unrecognized or unexpected command";
     private static final String ERR_UNKNOWN_MESSAGE_NUMBER = "-ERR Unknown message number %d";
     private static final String ERR_COMMAND_SYNTAX_ERROR = "-ERR Command syntax error";
-    private static final String ERR_UNKNOWN_ERROR = "-ERR Unknown error";
     private static final String ERR_AUTHENTICATION_FAILED = "-ERR Authentication failed";
     private static final String ERR_EXPECTED_USER_BEFORE_PASS = "-ERR Expected USER before PASS";
     private static final String ERR_MAILBOX_LOCKED = "-ERR Mailbox locked by another session";
+    private static final String ERR_DELTASYNC_ERROR = "-ERR DeltaSync error: %s";
+    private static final String ERR_IO_ERROR = "-ERR IO error: %s";
     
     private static final Pattern USER = Pattern.compile("^USER\\s+([^\\s]+)$", Pattern.CASE_INSENSITIVE); 
     private static final Pattern PASS = Pattern.compile("^PASS\\s+(.+)$", Pattern.CASE_INSENSITIVE); 
@@ -388,10 +389,10 @@ class PopHandler implements Runnable {
                     }
                 } catch (DeltaSyncException e) {
                     logger.error("Got DeltaSyncException while processing command: " + line, e);
-                    writeln(ERR_UNKNOWN_ERROR);
+                    writeln(ERR_DELTASYNC_ERROR, e.getMessage());
                 } catch (IOException e) {
                     logger.error("Got IOException while processing command: " + line, e);
-                    writeln(ERR_UNKNOWN_ERROR);
+                    writeln(ERR_IO_ERROR, e.getMessage());
                 }
                 
                 writer.flush();
