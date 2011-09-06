@@ -64,8 +64,9 @@ class PopHandler implements Runnable {
     private static final String ERR_MAILBOX_LOCKED = "-ERR Mailbox locked by another session";
     private static final String ERR_DELTASYNC_ERROR = "-ERR DeltaSync error: %s";
     private static final String ERR_IO_ERROR = "-ERR IO error: %s";
-    
-    private static final Pattern USER = Pattern.compile("^USER\\s+([^\\s]+)$", Pattern.CASE_INSENSITIVE); 
+    private static final String ERR_UNKNOWN_FOLDER = "-ERR Unknown folder name %s, using Inbox";
+
+    private static final Pattern USER = Pattern.compile("^USER\\s+([^\\/\\s]+)(?:/([^\\s]+))?$", Pattern.CASE_INSENSITIVE);
     private static final Pattern PASS = Pattern.compile("^PASS\\s+(.+)$", Pattern.CASE_INSENSITIVE); 
     private static final Pattern QUIT = Pattern.compile("^QUIT$", Pattern.CASE_INSENSITIVE); 
     private static final Pattern STAT = Pattern.compile("^STAT$", Pattern.CASE_INSENSITIVE); 
@@ -75,6 +76,7 @@ class PopHandler implements Runnable {
     private static final Pattern RETR = Pattern.compile("^RETR\\s+([\\d]+)$", Pattern.CASE_INSENSITIVE); 
     private static final Pattern RSET = Pattern.compile("^RSET$", Pattern.CASE_INSENSITIVE); 
     private static final Pattern NOOP = Pattern.compile("^NOOP$", Pattern.CASE_INSENSITIVE); 
+    private static final Pattern FOLDERS = Pattern.compile("^FOLDERS$", Pattern.CASE_INSENSITIVE); 
 
     private static final Set<String> connectedUsers = new HashSet<String>();
     
@@ -88,6 +90,7 @@ class PopHandler implements Runnable {
     private DeltaSyncClientHelper client;
     private String username;
     private String password;
+    private String folderName;
     private Folder inbox;
     private Message[] messages;
     private Set<String> deleted = new HashSet<String>();
@@ -113,6 +116,10 @@ class PopHandler implements Runnable {
             writeln(ERR_COMMAND_SYNTAX_ERROR);
         } else {
             username = matcher.group(1);
+            folderName = matcher.group(2);
+            if (folderName == null) {
+                folderName = "Inbox";
+            }
             writeln(OK);
         }
     }
@@ -154,9 +161,9 @@ class PopHandler implements Runnable {
             return false;
         } else {
             if (client != null && !deleted.isEmpty()) {
-                logger.info("Deleting {} messages from Inbox", deleted.size());
+                logger.info("Deleting {} messages from {}", deleted.size(), inbox.getName());
                 client.delete(getInbox(), getDeletedMessages());
-                logger.info("{} messages deleted from Inbox", deleted.size());
+                logger.info("{} messages deleted from {}", deleted.size(), inbox.getName());
             }
             synchronized (connectedUsers) {
                 connectedUsers.remove(username);
@@ -300,9 +307,28 @@ class PopHandler implements Runnable {
         }
     }
     
+    private void folders(String line) throws Exception {
+        if (!FOLDERS.matcher(line).matches()) {
+            writeln(ERR_COMMAND_SYNTAX_ERROR);            
+        } else {
+            for (Folder folder : client.getFolders()) {
+                writeln(folder.getName());
+            }
+            writeln(OK);
+        }
+    }
+    
     private Folder getInbox() throws Exception {
         if (inbox == null) {
-            inbox = client.getInbox();
+            for (Folder folder : client.getFolders()) {
+                if (folderName.equals(folder.getName())) {
+                    inbox = folder;
+                }
+            }
+            if (inbox == null) {
+                writeln(ERR_UNKNOWN_FOLDER, folderName);
+                inbox = client.getInbox();
+            }
         }
         return inbox;
     }
@@ -316,7 +342,7 @@ class PopHandler implements Runnable {
                 }
             });
             
-            logger.info("{} messages in Inbox", messages.length);        
+            logger.info("{} messages in {}", messages.length, inbox.getName());        
         }
         return messages;
     }
@@ -383,6 +409,8 @@ class PopHandler implements Runnable {
                             rset(line);
                         } else if ("NOOP".equals(cmd)) {
                             noop(line);
+                        } else if ("FOLDERS".equals(cmd)) {
+                            folders(line);
                         } else {
                             writeln(ERR_BAD_COMMAND);
                         }
