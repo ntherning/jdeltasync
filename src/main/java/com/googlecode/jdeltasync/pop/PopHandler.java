@@ -44,6 +44,7 @@ import com.googlecode.jdeltasync.DeltaSyncClientHelper;
 import com.googlecode.jdeltasync.DeltaSyncException;
 import com.googlecode.jdeltasync.Folder;
 import com.googlecode.jdeltasync.Message;
+import com.googlecode.jdeltasync.Store;
 
 /**
  * Handles a POP3 connection.
@@ -85,7 +86,7 @@ class PopHandler implements Runnable {
     private final DeltaSyncClient deltaSyncClient;
     private final BufferedReader reader;
     private final PrintWriter writer;
-    private final DeltaSyncClientHelper.Store store;
+    private final Store store;
 
     private DeltaSyncClientHelper client;
     private String username;
@@ -95,7 +96,7 @@ class PopHandler implements Runnable {
     private Message[] messages;
     private Set<String> deleted = new HashSet<String>();
     
-    public PopHandler(Socket socket, DeltaSyncClient deltaSyncClient, DeltaSyncClientHelper.Store store) throws IOException {
+    public PopHandler(Socket socket, DeltaSyncClient deltaSyncClient, Store store) throws IOException {
         this.socket = socket;
         this.deltaSyncClient = deltaSyncClient;
         this.store = store;

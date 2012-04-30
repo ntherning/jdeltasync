@@ -15,23 +15,13 @@
  */
 package com.googlecode.jdeltasync.pop;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
-import java.net.URLEncoder;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -46,7 +36,8 @@ import ch.qos.logback.core.joran.spi.JoranException;
 import ch.qos.logback.core.util.StatusPrinter;
 
 import com.googlecode.jdeltasync.DeltaSyncClient;
-import com.googlecode.jdeltasync.DeltaSyncClientHelper;
+import com.googlecode.jdeltasync.DiskStore;
+import com.googlecode.jdeltasync.Store;
 
 /**
  * POP3 proxy server which can be used to access Windows Live Hotmail accounts
@@ -57,13 +48,13 @@ public class PopProxy {
     
     private final InetSocketAddress bindAddress;
     private final DeltaSyncClient deltaSyncClient;
-    private final DeltaSyncClientHelper.Store store;
+    private final Store store;
     private final ExecutorService executor;
     
     private ServerThread serverThread;
     
     public PopProxy(InetSocketAddress bindAddress, DeltaSyncClient deltaSyncClient, 
-            DeltaSyncClientHelper.Store store, ExecutorService executor) {
+            Store store, ExecutorService executor) {
         
         this.bindAddress = bindAddress;
         this.deltaSyncClient = deltaSyncClient;
@@ -200,82 +191,5 @@ public class PopProxy {
         } catch (BindException e) {
             System.err.println("Error: " + e.getClass().getName() + " - " + e.getMessage());
         }
-    }
-    
-    private static class DiskStore extends DeltaSyncClientHelper.AbstractStore {
-        private static final int MAX_ENTRIES = 32;
-        
-        @SuppressWarnings("serial")
-        private final Map<String, State> states = new LinkedHashMap<String, State>(16, 0.75f, true) {
-            protected boolean removeEldestEntry(Map.Entry<String,State> eldest) {
-                return size() > MAX_ENTRIES;
-            }
-        };
-        private final File datadir;
-
-        public DiskStore(File datadir) {
-            this.datadir = datadir;
-        }
-
-        private File getFile(String username) throws UnsupportedEncodingException {
-            return new File(datadir, URLEncoder.encode(username, "UTF-8") + ".bin");
-        }
-        
-        @Override
-        protected State getState(String username) {
-            State state = states.get(username);
-            if (state == null) {
-                ObjectInputStream in = null;
-                try {
-                    File f = getFile(username);
-                    if (f.exists()) {
-                        log.debug("Reading State for user {} from disk", username);
-                        in = new ObjectInputStream(new BufferedInputStream(new FileInputStream(f)));
-                        state = (State) in.readObject();
-                    }
-                } catch (IOException e) {
-                    log.error("Failed to read State object from file for user " + username, e);
-                } catch (ClassNotFoundException e) {
-                    log.error("Failed to read State object from file for user " + username, e);
-                } finally {
-                    if (in != null) {
-                        try {
-                            in.close();
-                        } catch (IOException e) {}
-                    }
-                }
-                if (state == null) {
-                    state = new State();
-                }
-                states.put(username, state);
-            }
-            return state;
-        }
-        
-        @Override
-        protected void stateChanged(String username, State state) {
-            ObjectOutputStream out = null;
-            try {
-                File f = getFile(username);
-                File tmp = new File(f.getParent(), f.getName() + ".tmp");
-                log.debug("Writing State for user {} to disk", username);
-                out = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream(tmp)));
-                out.writeObject(state);
-                out.close();
-                if (f.exists()) {
-                    f.delete();
-                }
-                tmp.renameTo(f);
-            } catch (IOException e) {
-                log.error("Failed to write State object to file for user " + username, e);
-            } finally {
-                if (out != null) {
-                    try {
-                        out.close();
-                    } catch (IOException e1) {}
-                }
-            }
-        }
-        
     }
 }
