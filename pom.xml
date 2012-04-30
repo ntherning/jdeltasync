@@ -3,7 +3,7 @@
   <groupId>com.googlecode.jdeltasync</groupId>
   <artifactId>jdeltasync</artifactId>
   <packaging>jar</packaging>
-  <version>0.1</version>
+  <version>0.2-SNAPSHOT</version>
   <name>JDeltaSync</name>
   <url>http://jdeltasync.googlecode.com</url>
   <description>
