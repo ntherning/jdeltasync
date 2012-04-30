@@ -417,7 +417,7 @@ class PopHandler implements Runnable {
                     }
                 } catch (DeltaSyncException e) {
                     logger.error("Got DeltaSyncException while processing command: " + line, e);
-                    writeln(ERR_DELTASYNC_ERROR, e.getMessage());
+                    writeln(ERR_DELTASYNC_ERROR, e.getMessage().replaceAll("\r|\n", " "));
                 } catch (IOException e) {
                     logger.error("Got IOException while processing command: " + line, e);
                     writeln(ERR_IO_ERROR, e.getMessage());
