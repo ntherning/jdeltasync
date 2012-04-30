@@ -20,9 +20,9 @@
   </licenses>
 
   <scm>
-	  <connection>scm:git:git@github.com:ntherning/jdeltasync.git</connection>
-	  <url>scm:git:git@github.com:ntherning/jdeltasync.git</url>
-	  <developerConnection>scm:git:git@github.com:ntherning/jdeltasync.git</developerConnection>
+    <connection>scm:git:git@github.com:ntherning/jdeltasync.git</connection>
+    <url>scm:git:git@github.com:ntherning/jdeltasync.git</url>
+    <developerConnection>scm:git:git@github.com:ntherning/jdeltasync.git</developerConnection>
   </scm>
 
   <dependencies>
