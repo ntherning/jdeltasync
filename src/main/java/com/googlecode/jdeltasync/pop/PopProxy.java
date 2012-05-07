@@ -51,6 +51,8 @@ public class PopProxy {
     private final Store store;
     private final ExecutorService executor;
     
+    private boolean useHardwiredInbox = false;
+    
     private ServerThread serverThread;
     
     public PopProxy(InetSocketAddress bindAddress, DeltaSyncClient deltaSyncClient, 
@@ -62,6 +64,10 @@ public class PopProxy {
         this.executor = executor;
     }
 
+    public void setUseHardwiredInbox(boolean useHardwiredInbox) {
+        this.useHardwiredInbox = useHardwiredInbox;
+    }
+    
     public synchronized void start() throws IOException {
         if (isStarted()) {
             throw new IllegalStateException("Already started");
@@ -107,6 +113,7 @@ public class PopProxy {
                     try {
                         Socket socket = serverSocket.accept();
                         PopHandler handler = new PopHandler(socket, deltaSyncClient, store);
+                        handler.setUseHardwiredInbox(useHardwiredInbox);
                         executor.execute(handler);
                     } catch (SocketTimeoutException e) {
                     }

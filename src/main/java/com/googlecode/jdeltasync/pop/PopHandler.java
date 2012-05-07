@@ -88,6 +88,7 @@ class PopHandler implements Runnable {
     private final PrintWriter writer;
     private final Store store;
 
+    private boolean useHardwiredInbox = false;
     private DeltaSyncClientHelper client;
     private String username;
     private String password;
@@ -105,6 +106,10 @@ class PopHandler implements Runnable {
         writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), "ASCII"));
     }
 
+    public void setUseHardwiredInbox(boolean useHardwiredInbox) {
+        this.useHardwiredInbox = useHardwiredInbox;
+    }
+    
     private void writeln(String s, Object ... args) {
         s = String.format(s, args);
         logger.trace("WRITE: {}", s);
@@ -321,14 +326,22 @@ class PopHandler implements Runnable {
     
     private Folder getInbox() throws Exception {
         if (inbox == null) {
-            for (Folder folder : client.getFolders()) {
-                if (folderName.equals(folder.getName())) {
-                    inbox = folder;
+            if (folderName.equalsIgnoreCase("Inbox")) {
+                if (useHardwiredInbox) {
+                    inbox = new Folder("00000000-0000-0000-0000-000000000001", "Inbox");
+                } else {
+                    inbox = client.getInbox();
                 }
-            }
-            if (inbox == null) {
-                writeln(ERR_UNKNOWN_FOLDER, folderName);
-                inbox = client.getInbox();
+            } else {
+                for (Folder folder : client.getFolders()) {
+                    if (folderName.equals(folder.getName())) {
+                        inbox = folder;
+                    }
+                }
+                if (inbox == null) {
+                    writeln(ERR_UNKNOWN_FOLDER, folderName);
+                    inbox = client.getInbox();
+                }
             }
         }
         return inbox;

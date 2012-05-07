@@ -65,6 +65,7 @@ public abstract class AbstractStore implements Store {
             Collection<Folder> added, Collection<String> deleted) {
 
         State state = getState(username);
+        state.foldersSyncKey = syncKey;
         for (Folder folder : added) {
             state.folders.put(folder.getId(), folder);
         }
