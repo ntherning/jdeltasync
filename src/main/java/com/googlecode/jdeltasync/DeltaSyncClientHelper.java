@@ -177,7 +177,7 @@ public class DeltaSyncClientHelper {
             session = client.renew(session);
             return doGetFolders();
         } catch (InvalidSyncKeyException e) {
-            session.getLogger().debug("Invalid folders sync key. All folders " 
+            session.getLogger().warn("Invalid folders sync key. All folders " 
                     + "will be retrieved anew.");
             store.resetFolders(username);
             return doGetFolders();
@@ -272,10 +272,18 @@ public class DeltaSyncClientHelper {
             session = client.renew(session);
             return doGetMessages(folder);
         } catch (InvalidSyncKeyException e) {
-            session.getLogger().debug("Invalid messages sync key. All messages " 
+            session.getLogger().warn("Invalid messages sync key. All messages " 
                     + "will be retrieved anew.");
             store.resetMessages(username, folder);
             return doGetMessages(folder);
+        } catch (DeltaSyncException e) {
+            if (e.getMessage().contains("Sync request failed with status 4104")) {
+                session.getLogger().warn("Got 4104 error. All messages " 
+                        + "will be retrieved anew.");
+                store.resetMessages(username, folder);
+                return doGetMessages(folder);
+            }
+            throw e;
         }
     }
 
