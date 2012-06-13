@@ -35,32 +35,32 @@ public class HU01DecompressorTest {
 
     @Test
     public void testDecompress1() throws Exception {
-        decompress("test1.hu01", "test1.plain");
+        decompress("test1.hu01", "test1.plain", "UTF-8");
     }
     
     @Test
     public void testDecompress2() throws Exception {
-        decompress("test2.hu01", "test2.plain");
+        decompress("test2.hu01", "test2.plain", "ISO-8859-1");
     }
     
     @Test
     public void testDecompress3() throws Exception {
-        decompress("test3.hu01", "test3.plain");
+        decompress("test3.hu01", "test3.plain", "UTF-8");
     }
     
     @Test
     public void testDecompress4() throws Exception {
-        decompress("test4.hu01", "test4.plain");
+        decompress("test4.hu01", "test4.plain", "UTF-8");
     }
     
     @Test
     public void testDecompress5() throws Exception {
-        decompress("test5.hu01", "test5.plain");
+        decompress("test5.hu01", "test5.plain", "UTF-8");
     }
     
     @Test
     public void testDecompress6() throws Exception {
-        decompress("test6.hu01", "test6.plain");
+        decompress("test6.hu01", "test6.plain", "UTF-8");
     }
     
     @Test
@@ -68,7 +68,7 @@ public class HU01DecompressorTest {
         /*
          * This HU01 file contains an uncompressed block.
          */
-        decompress("test7.hu01", "test7.plain");
+        decompress("test7.hu01", "test7.plain", "UTF-8");
     }
     
     @Test
@@ -91,7 +91,7 @@ public class HU01DecompressorTest {
             InputStream hu01Input = new BufferedInputStream(new FileInputStream(hu01));
             InputStream plainInput = new BufferedInputStream(new FileInputStream(plain));
             try  {
-                decompress(hu01Input, plainInput);
+                decompress(hu01Input, plainInput, "UTF-8");
             } finally {
                 try {
                     hu01Input.close();
@@ -103,11 +103,11 @@ public class HU01DecompressorTest {
         }
     }
     
-    private void decompress(String hu01, String plain) throws Exception {
-        decompress(getClass().getResourceAsStream(hu01), getClass().getResourceAsStream(plain));
+    private void decompress(String hu01, String plain, String encoding) throws Exception {
+        decompress(getClass().getResourceAsStream(hu01), getClass().getResourceAsStream(plain), encoding);
     }
     
-    private void decompress(InputStream hu01Input, InputStream plainInput) throws Exception {
+    private void decompress(InputStream hu01Input, InputStream plainInput, String encoding) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         byte[] data = new byte[1024];
         byte[] decoded = new byte[1024];
@@ -124,8 +124,8 @@ public class HU01DecompressorTest {
             }
         }
         assertTrue(decompressor.finished());
-        String expected = new String(toByteArray(plainInput));
-        String actual = new String(baos.toByteArray(), "UTF-8");
+        String expected = new String(toByteArray(plainInput), encoding);
+        String actual = new String(baos.toByteArray(), encoding);
         assertEquals(expected, actual);
     }
     

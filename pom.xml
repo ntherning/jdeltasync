@@ -11,6 +11,10 @@
     The DeltaSync protocol is used by Windows Live Mail and other software to synchronize 
     mail, contacts, calendars, etc with web services like Microsoft's Windows Live Hotmail.
   </description>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+  </properties>
   <licenses>
     <license>
       <name>The Apache Software License, Version 2.0</name>
