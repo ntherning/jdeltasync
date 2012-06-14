@@ -443,10 +443,11 @@ public class DeltaSyncClient {
                         Element elAppData = XmlUtil.getElement(elAdd, "airsync:ApplicationData");
                         long size = Long.parseLong(XmlUtil.getTextContent(elAppData, "hmmail:Size"));
                         boolean read = Integer.parseInt(XmlUtil.getTextContent(elAppData, "email:Read")) == 1;
+                        boolean hasAttachments = Integer.parseInt(XmlUtil.getTextContent(elAppData, "hmmail:HasAttachments")) == 1;
                         Date dateReceived = format.parse(XmlUtil.getTextContent(elAppData, "email:DateReceived"));
                         String subject = XmlUtil.getTextContent(elAppData, "email:Subject");
                         String from = XmlUtil.getTextContent(elAppData, "email:From");
-                        commands.add(new EmailAddCommand(id, folderId, dateReceived, size, read, subject, from));
+                        commands.add(new EmailAddCommand(id, folderId, dateReceived, size, read, subject, from, hasAttachments));
                     } catch (ParseException e) {
                         throw new DeltaSyncException(e);
                     }

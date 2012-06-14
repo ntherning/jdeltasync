@@ -28,6 +28,7 @@ public class Message implements Serializable {
     private final boolean read;
     private final String subject;
     private final String from;
+    private final boolean hasAttachments;
     
     /**
      * Creates a new {@link Message}.
@@ -40,9 +41,11 @@ public class Message implements Serializable {
      *        <code>false</code> otherwise.
      * @param subject the message subject.
      * @param from the name and e-mail address of the sender.
+     * @param hasAttachments <code>true</code> if the message has attachments,
+     *        <code>false</code> otherwise.
      */
     public Message(String id, Date dateReceived, long size, boolean read,
-            String subject, String from) {
+            String subject, String from, boolean hasAttachments) {
         
         this.id = id;
         this.dateReceived = dateReceived;
@@ -50,6 +53,7 @@ public class Message implements Serializable {
         this.read = read;
         this.subject = subject;
         this.from = from;
+        this.hasAttachments = hasAttachments;
     }
 
     /**
@@ -90,6 +94,16 @@ public class Message implements Serializable {
     }
 
     /**
+     * Returns whether this {@link Message} has attachments.
+     * 
+     * @return <code>true</code> if the messages has attachments, 
+     *         <code>false</code> otherwise.
+     */
+    public boolean hasAttachments() {
+        return hasAttachments;
+    }
+    
+    /**
      * Returns the subject of this {@link Message}.
      * 
      * @return the subject.
@@ -116,7 +130,8 @@ public class Message implements Serializable {
         sb.append("size").append("=").append(size).append(",");
         sb.append("read").append("=").append(read).append(",");
         sb.append("subject").append("=").append(subject).append(",");
-        sb.append("from").append("=").append(from);
+        sb.append("from").append("=").append(from).append(",");
+        sb.append("has attachments").append("=").append(hasAttachments);
         sb.append(")");
         return sb.toString();
     }
