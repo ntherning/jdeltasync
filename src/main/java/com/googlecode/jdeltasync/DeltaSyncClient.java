@@ -16,6 +16,7 @@
 package com.googlecode.jdeltasync;
 
 import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -516,8 +517,16 @@ public class DeltaSyncClient {
     private <T> T call(final String cmd, final DeltaSyncSession session, String request, 
             UriCapturingResponseHandler<T> handler) throws DeltaSyncException, IOException {
         
-        session.getLogger().debug("Sending {} request: {}", cmd, request);
-        
+    	if (session.getLogger().isDebugEnabled()) {
+    		try {
+    			Document document = XmlUtil.parse(new ByteArrayInputStream(request.getBytes()));
+        		session.getLogger().debug("Sending {} request: {}", cmd, XmlUtil.toString(document,false));
+    		}
+    		catch (XmlException e) {
+        		session.getLogger().debug("Sending {} request: {}", cmd, request);    			
+    		}
+    	}
+    	
         return post(session, session.dsBaseUri + "/DeltaSync_v2.0.0/" + cmd + ".aspx?" 
                 + session.getTicket(), DS_USER_AGENT, "text/xml", request, handler);
     }
