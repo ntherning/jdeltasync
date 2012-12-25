@@ -60,7 +60,9 @@ class PopHandler implements Runnable {
     private static final String ERR_BAD_COMMAND = "-ERR Unrecognized or unexpected command";
     private static final String ERR_UNKNOWN_MESSAGE_NUMBER = "-ERR Unknown message number %d";
     private static final String ERR_COMMAND_SYNTAX_ERROR = "-ERR Command syntax error";
-    private static final String ERR_AUTHENTICATION_FAILED = "-ERR Authentication failed";
+    private static final String ERR_AUTHENTICATION_FAILED = "-ERR Authentication failed: %s";
+    private static final String ERR_AUTHENTICATION_FAILED_WITH_URL = "-ERR Authentication failed: " 
+            + "Please go to %s to allow access to your live.com account from this server";
     private static final String ERR_EXPECTED_USER_BEFORE_PASS = "-ERR Expected USER before PASS";
     private static final String ERR_MAILBOX_LOCKED = "-ERR Mailbox locked by another session";
     private static final String ERR_DELTASYNC_ERROR = "-ERR DeltaSync error: %s";
@@ -154,7 +156,12 @@ class PopHandler implements Runnable {
                             writeln(OK);
                         }
                     } catch (AuthenticationException e) {
-                        writeln(ERR_AUTHENTICATION_FAILED);
+                        logger.info(e.getMessage(), e);
+                        if (e.getFlowUrl() != null) {
+                            writeln(ERR_AUTHENTICATION_FAILED_WITH_URL, e.getFlowUrl());
+                        } else {
+                            writeln(ERR_AUTHENTICATION_FAILED, e.getMessage());
+                        }
                     }
                 }
             }

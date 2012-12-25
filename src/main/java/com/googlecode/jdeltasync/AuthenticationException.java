@@ -21,9 +21,35 @@ package com.googlecode.jdeltasync;
  */
 @SuppressWarnings("serial")
 public class AuthenticationException extends DeltaSyncException {
+    private final String flowUrl;
+    private final String requestStatus;
+    private final String errorStatus;
 
     public AuthenticationException(String message) {
         super(message);
+        flowUrl = null;
+        requestStatus = null;
+        errorStatus = null;
     }
 
+    public AuthenticationException(String flowUrl, String requestStatus, String errorStatus) {
+        super("{flowUrl=" + flowUrl 
+                + ", requestStatus=" + requestStatus 
+                + ", errorStatus=" + errorStatus + "}");
+        this.flowUrl = flowUrl;
+        this.requestStatus = requestStatus;
+        this.errorStatus = errorStatus;
+    }
+
+    public String getFlowUrl() {
+        return flowUrl;
+    }
+    
+    public String getRequestStatus() {
+        return requestStatus;
+    }
+    
+    public String getErrorStatus() {
+        return errorStatus;
+    }
 }

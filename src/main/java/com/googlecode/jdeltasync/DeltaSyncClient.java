@@ -15,8 +15,8 @@
  */
 package com.googlecode.jdeltasync;
 
-import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -209,8 +209,22 @@ public class DeltaSyncClient {
             throw new AuthenticationException(XmlUtil.getTextContent(response, "/s:Envelope/s:Body/s:Fault/s:Reason/s:Text"));
         }
         
-        session.ticket = XmlUtil.getTextContent(response, "/s:Envelope/s:Body/wst:RequestSecurityTokenResponseCollection/" 
-                        + "wst:RequestSecurityTokenResponse/wst:RequestedSecurityToken/wsse:BinarySecurityToken");
+        String ticket = XmlUtil.getTextContent(response, "/s:Envelope/s:Body/wst:RequestSecurityTokenResponseCollection/" 
+                + "wst:RequestSecurityTokenResponse/wst:RequestedSecurityToken/wsse:BinarySecurityToken");
+        if (ticket == null) {
+            String flowUrl = XmlUtil.getTextContent(response, "/s:Envelope/s:Body/wst:RequestSecurityTokenResponseCollection/" 
+                    + "wst:RequestSecurityTokenResponse/psf:pp/psf:flowurl");
+            String requestStatus = XmlUtil.getTextContent(response, "/s:Envelope/s:Body/wst:RequestSecurityTokenResponseCollection/" 
+                    + "wst:RequestSecurityTokenResponse/psf:pp/psf:reqstatus");
+            String errorStatus = XmlUtil.getTextContent(response, "/s:Envelope/s:Body/wst:RequestSecurityTokenResponseCollection/" 
+                    + "wst:RequestSecurityTokenResponse/psf:pp/psf:errorstatus");
+            if (flowUrl != null || requestStatus != null || errorStatus != null) {
+                throw new AuthenticationException(flowUrl, requestStatus, errorStatus);
+            }
+            throw new AuthenticationException("Uknown authentication failure");
+        }
+        
+        session.ticket = ticket;
         session.dsBaseUri = DS_BASE_URI;
         
         return session;
@@ -384,7 +398,7 @@ public class DeltaSyncClient {
                     + XmlUtil.toString(response, true));
         }
     }
-    
+
     public SyncResponse sync(DeltaSyncSession session, SyncRequest syncRequest) 
             throws DeltaSyncException, IOException {
         

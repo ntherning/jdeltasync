@@ -105,6 +105,7 @@ class XmlUtil {
         NAMESPACES.put("wsse", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd");
         NAMESPACES.put("wsu", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd");
         NAMESPACES.put("wst", "http://schemas.xmlsoap.org/ws/2005/02/trust");
+        NAMESPACES.put("psf", "http://schemas.microsoft.com/Passport/SoapServices/SOAPFault");
         NAMESPACES.put("airsync", "AirSync:");
         NAMESPACES.put("itemop", "ItemOperations:");
         NAMESPACES.put("hmfolder", "HMFOLDER:");
