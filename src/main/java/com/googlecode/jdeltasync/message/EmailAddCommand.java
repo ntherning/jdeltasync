@@ -26,6 +26,7 @@ public class EmailAddCommand extends Command {
     private final Date dateReceived;
     private final long size;
     private final boolean read;
+    private final boolean hasAttachments;
     private final String subject;
     private final String from;
     
@@ -40,9 +41,11 @@ public class EmailAddCommand extends Command {
      *        <code>false</code> otherwise.
      * @param subject the message subject.
      * @param from the name and e-mail address of the sender.
+     * @param hasAttachments <code>true</code> if the messages has attachments, 
+     *        <code>false</code> otherwise.
      */
     public EmailAddCommand(String id, String folderId, Date dateReceived, long size, boolean read,
-            String subject, String from) {
+            String subject, String from, boolean hasAttachments) {
         
         this.id = id;
         this.folderId = folderId;
@@ -51,6 +54,7 @@ public class EmailAddCommand extends Command {
         this.read = read;
         this.subject = subject;
         this.from = from;
+        this.hasAttachments = hasAttachments;
     }
 
     /**
@@ -93,6 +97,16 @@ public class EmailAddCommand extends Command {
     public boolean isRead() {
         return read;
     }
+    
+    /**
+     * Returns whether this {@link Message} has attachments.
+     * 
+     * @return <code>true</code> if the messages has attachments, 
+     *         <code>false</code> otherwise.
+     */
+    public boolean hasAttachments() {
+        return hasAttachments;
+    }
 
     /**
      * Returns the subject of this {@link Message}.
@@ -122,7 +136,8 @@ public class EmailAddCommand extends Command {
         sb.append("size").append("=").append(size).append(",");
         sb.append("read").append("=").append(read).append(",");
         sb.append("subject").append("=").append(subject).append(",");
-        sb.append("from").append("=").append(from);
+        sb.append("from").append("=").append(from).append(",");
+        sb.append("has attachments").append("=").append(hasAttachments);
         sb.append(")");
         return sb.toString();
     }

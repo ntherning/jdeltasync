@@ -311,7 +311,7 @@ public class DeltaSyncClientHelper {
                     EmailAddCommand addCmd = (EmailAddCommand) cmd;
                     added.add(new Message(addCmd.getId(), 
                             addCmd.getDateReceived(), addCmd.getSize(), addCmd.isRead(), 
-                            addCmd.getSubject(), addCmd.getFrom()));
+                            addCmd.getSubject(), addCmd.getFrom(), addCmd.hasAttachments()));
                 } else if (cmd instanceof EmailDeleteCommand) {
                     EmailDeleteCommand delCmd = (EmailDeleteCommand) cmd;
                     deleted.add(delCmd.getId());
