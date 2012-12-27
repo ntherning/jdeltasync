@@ -26,8 +26,9 @@ import java.util.Map;
  */
 public abstract class AbstractStore implements Store {
     
-    @SuppressWarnings("serial")
     public static class State implements Serializable {
+        private static final long serialVersionUID = -120563876716329670L;
+        
         public String foldersSyncKey = "0";
         public Map<String, String> messagesSyncKeys = new HashMap<String, String>();
         public Map<String, Folder> folders = new HashMap<String, Folder>();
