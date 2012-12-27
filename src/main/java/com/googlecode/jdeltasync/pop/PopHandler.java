@@ -113,9 +113,12 @@ class PopHandler implements Runnable {
     }
     
     private void writeln(String s, Object ... args) {
-        s = String.format(s, args);
+        if (args != null && args.length > 0) {
+            s = String.format(s, args);
+        }
         logger.trace("WRITE: {}", s);
-        writer.printf(s + "\r\n");
+        writer.write(s);
+        writer.write("\r\n");
     }
     
     private void user(String line) throws Exception {
@@ -141,11 +144,11 @@ class PopHandler implements Runnable {
                 writeln(ERR_COMMAND_SYNTAX_ERROR);
             } else {
                 password = matcher.group(1);
-                synchronized (connectedUsers) {
-                    try {
-                        DeltaSyncClientHelper helper = new DeltaSyncClientHelper(
-                                deltaSyncClient, username, password, store);
-                        helper.login();
+                try {
+                    DeltaSyncClientHelper helper = new DeltaSyncClientHelper(
+                            deltaSyncClient, username, password, store);
+                    helper.login();
+                    synchronized (connectedUsers) {
                         if (connectedUsers.contains(username)) {
                             writeln(ERR_MAILBOX_LOCKED);
                         } else {
@@ -155,13 +158,13 @@ class PopHandler implements Runnable {
                             logger.info("User {} logged in", username);
                             writeln(OK);
                         }
-                    } catch (AuthenticationException e) {
-                        logger.info(e.getMessage(), e);
-                        if (e.getFlowUrl() != null) {
-                            writeln(ERR_AUTHENTICATION_FAILED_WITH_URL, e.getFlowUrl());
-                        } else {
-                            writeln(ERR_AUTHENTICATION_FAILED, e.getMessage());
-                        }
+                    }
+                } catch (AuthenticationException e) {
+                    logger.info(e.getMessage(), e);
+                    if (e.getFlowUrl() != null) {
+                        writeln(ERR_AUTHENTICATION_FAILED_WITH_URL, e.getFlowUrl());
+                    } else {
+                        writeln(ERR_AUTHENTICATION_FAILED, e.getMessage());
                     }
                 }
             }
@@ -267,9 +270,16 @@ class PopHandler implements Runnable {
             Message[] msgs = getAllMessages();
             writeln(OK);
             int n = 1;
+            int written = 0;
             for (Message msg : msgs) {
                 if (!deleted.contains(msg.getId())) {
-                    writeln("%d %s", n, msg.getId());
+                    String s = String.format("%d %s", n, msg.getId());
+                    writeln(s);
+                    written += s.length() + 2;
+                    if (written > 4096) {
+                        writer.flush();
+                        written = 0;
+                    }
                 }
                 n++;
             }
@@ -293,9 +303,16 @@ class PopHandler implements Runnable {
             Message[] msgs = getAllMessages();
             writeln(OK);
             int n = 1;
+            int written = 0;
             for (Message msg : msgs) {
                 if (!deleted.contains(msg.getId())) {
-                    writeln("%d %d", n, msg.getSize());
+                    String s = String.format("%d %d", n, msg.getSize());
+                    writeln(s);
+                    written += s.length() + 2;
+                    if (written > 4096) {
+                        writer.flush();
+                        written = 0;
+                    }
                 }
                 n++;
             }
